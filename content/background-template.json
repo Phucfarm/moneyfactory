@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "backgrounds": [
+    {
+      "id": "bg.example",
+      "nameKey": "background.example.name",
+      "className": "zone-background--example",
+      "cssSource": "src/backgrounds/example.css",
+      "css": {
+        "background": "linear-gradient(135deg, #101820, #162735)"
+      }
+    }
+  ]
+}

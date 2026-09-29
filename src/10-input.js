@@ -32,7 +32,7 @@
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     canvas.addEventListener("touchmove", onTouchMove, { passive: false });
     canvas.addEventListener("touchend", onTouchEnd, { passive: false });
-    canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
+    canvas.addEventListener("touchcancel", onTouchCancel, { passive: false });
   }
 
   function onKeyDown(e) {
@@ -43,7 +43,7 @@
       e.preventDefault();
       callbacks.onCollectNearest && callbacks.onCollectNearest();
     }
-    const numMatch = e.code.match(/^Digit([1-5])$/);
+    const numMatch = e.code.match(/^Digit([1-8])$/);
     if (numMatch) {
       callbacks.onSelectTierIndex && callbacks.onSelectTierIndex(parseInt(numMatch[1], 10) - 1);
     }
@@ -60,6 +60,10 @@
   }
   function onMouseMove(e) {
     if (!dragging) {
+      if (e.target !== canvas) {
+        callbacks.onHoverScreen && callbacks.onHoverScreen(-1, -1);
+        return;
+      }
       const rect = canvas.getBoundingClientRect();
       callbacks.onHoverScreen && callbacks.onHoverScreen(e.clientX - rect.left, e.clientY - rect.top);
       return;
@@ -74,11 +78,13 @@
     lastPointer = { x: e.clientX, y: e.clientY };
   }
   function onMouseUp(e) {
-    if (dragging && !dragMoved) {
+    if (dragging && !dragMoved && e.target === canvas) {
       const rect = canvas.getBoundingClientRect();
-      callbacks.onTapScreen && callbacks.onTapScreen(e.clientX - rect.left, e.clientY - rect.top);
+      const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+      if (inside) callbacks.onTapScreen && callbacks.onTapScreen(e.clientX - rect.left, e.clientY - rect.top);
     }
     dragging = false;
+    dragMoved = false;
   }
   function onWheel(e) {
     e.preventDefault();
@@ -137,13 +143,32 @@
     if (touchState.mode === "pan" && !touchState.moved && e.changedTouches.length === 1) {
       const rect = canvas.getBoundingClientRect();
       const t = e.changedTouches[0];
-      callbacks.onTapScreen && callbacks.onTapScreen(t.clientX - rect.left, t.clientY - rect.top);
+      const inside = t.clientX >= rect.left && t.clientX <= rect.right && t.clientY >= rect.top && t.clientY <= rect.bottom;
+      if (inside) callbacks.onTapScreen && callbacks.onTapScreen(t.clientX - rect.left, t.clientY - rect.top);
     }
-    if (e.touches.length === 0) touchState.mode = null;
+    if (e.touches.length === 1) {
+      touchState.mode = "pan";
+      touchState.moved = true; // returning from pinch must never become a tap
+      touchState.startPointer = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 0) {
+      touchState.mode = null;
+      touchState.moved = false;
+      touchState.startPointer = null;
+    }
+  }
+  function onTouchCancel(e) {
+    e.preventDefault();
+    touchState.mode = null;
+    touchState.moved = false;
+    touchState.startPointer = null;
   }
 
   // ---- Per-frame update: applies held-key pan ---------------------------------
   function update(dt) {
+    if (callbacks.isInputBlocked && callbacks.isInputBlocked()) {
+      clearKeys();
+      return;
+    }
     let dx = 0, dy = 0;
     if (keys["KeyW"] || keys["ArrowUp"]) dy -= 1;
     if (keys["KeyS"] || keys["ArrowDown"]) dy += 1;
@@ -161,7 +186,7 @@
   function isLandscape() { return window.innerWidth >= window.innerHeight; }
   function isTouchDevice() { return ("ontouchstart" in window) || navigator.maxTouchPoints > 0; }
 
-  // Re-point the module at a new camera object (e.g. after prestige/hard-reset
+  // Re-point the module at a new camera object after a hard reset/import.
   // swaps in a brand-new state tree with its own camera sub-object).
   function setCameraRef(newCamera) { camera = newCamera; }
 

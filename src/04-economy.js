@@ -17,13 +17,11 @@
       collectorSpeedMult: 0,
       rndRateMult: 0,
       upgradeDiscount: 0,
-      offlineCapAdd: 0,
+      vaultInterestAdd: 0,
       machineCostDiscount: 0,
-      startingMoneyMult: 0,
-      prestigeGainMult: 0,
     };
-    Object.keys(state.prestige.tech).forEach((id) => {
-      if (!state.prestige.tech[id]) return;
+    Object.keys(state.skills.tech).forEach((id) => {
+      if (!state.skills.tech[id]) return;
       const t = D.techById(id);
       if (!t) return;
       const e = t.effect;
@@ -42,20 +40,37 @@
     return n;
   }
 
-  function machineCost(state, tierId) {
-    const tier = D.tierById(tierId);
-    const n = tierPlacedCount(state, tierId);
+  function machineCountById(state, machineId) {
+    let n = 0;
+    state.zones.forEach((z) => z.floors.forEach((f) => f.grid.forEach((s) => {
+      if (s.machine && s.machine.typeId === machineId) n++;
+    })));
+    return n;
+  }
+
+  function machineCostById(state, machineId) {
+    const def = D.machineById(machineId);
+    if (!def) return Infinity;
+    const n = machineCountById(state, machineId);
     const eff = techEffects(state);
-    const raw = tier.baseCost * Math.pow(tier.costGrowth, n);
+    const raw = def.baseCost * Math.pow(def.costGrowth || 1, n);
     return Math.ceil(raw * (1 - Math.min(0.6, eff.machineCostDiscount)));
+  }
+
+  function machineCost(state, tierIdOrMachineId) {
+    const def = D.machineById(tierIdOrMachineId);
+    if (def) return machineCostById(state, def.id);
+    const type = D.machineTypeById(tierIdOrMachineId);
+    if (type) return machineCostById(state, type.id);
+    const tier = D.tierById(tierIdOrMachineId);
+    return tier ? machineCostById(state, "printer_" + tier.id) : Infinity;
   }
 
   function tierUnlocked(state, tierId) {
     const tier = D.tierById(tierId);
-    if (!tier.unlockRequirement) return true;
+    if (!tier || !tier.unlockRequirement) return !!tier;
     const req = tier.unlockRequirement;
-    if (req.type === "money") return state.lifetimeEarned >= req.amount;
-    if (req.type === "prestige") return state.prestige.count >= req.amount;
+    if (req.type === "money") return state.maxMoney >= Number(req.amount || 0);
     return false;
   }
 
@@ -67,33 +82,49 @@
     return Math.ceil(raw * (1 - Math.min(0.5, eff.upgradeDiscount)));
   }
 
+  function machineDefinition(machine) {
+    const direct = D.machineById(machine && machine.typeId);
+    if (direct) return direct;
+    const legacyTierId = machine && machine.tierId;
+    if (legacyTierId) {
+      const tierMachine = D.machineById("printer_" + legacyTierId);
+      if (tierMachine) return tierMachine;
+    }
+    return null;
+  }
+
   function machineCooldown(machine, state) {
-    const tier = D.tierById(machine.tierId);
+    const def = machineDefinition(machine);
+    if (!def) return 1;
     const eff = techEffects(state);
     const speedLvl = machine.levels.speed;
     const reduction = 1 - Math.min(0.75, D.UPGRADES.speed.effectPerLevel * speedLvl + eff.globalSpeedMult);
-    return Math.max(0.15, tier.baseCooldown * reduction);
+    const base = Number.isFinite(def.baseCooldown) ? def.baseCooldown : 1;
+    return Math.max(0.15, base * reduction);
   }
 
   function machineBaseYield(machine, floorMult, state) {
-    const tier = D.tierById(machine.tierId);
+    const def = machineDefinition(machine);
+    if (!def) return 0;
     const eff = techEffects(state);
     const outputLvl = machine.levels.output;
     const outputMult = 1 + D.UPGRADES.output.effectPerLevel * outputLvl + eff.globalOutputMult;
-    return tier.baseYield * outputMult * floorMult;
+    return def.baseYield * outputMult * floorMult;
   }
 
   function machineCritChance(machine, state) {
-    const tier = D.tierById(machine.tierId);
+    const def = machineDefinition(machine);
+    if (!def) return 0;
     const eff = techEffects(state);
     const inkLvl = machine.levels.ink;
-    return Math.min(0.6, tier.critChance + D.UPGRADES.ink.effectPerLevel * inkLvl + eff.critChanceAdd);
+    return Math.min(0.6, def.critChance + D.UPGRADES.ink.effectPerLevel * inkLvl + eff.critChanceAdd);
   }
 
   function machineCritMult(machine) {
-    const tier = D.tierById(machine.tierId);
+    const def = machineDefinition(machine);
+    if (!def) return 1;
     const inkLvl = machine.levels.ink;
-    return tier.critMult + 0.15 * inkLvl;
+    return def.critMult + 0.15 * inkLvl;
   }
 
   // ---- Floor-level systems ----------------------------------------------
@@ -104,8 +135,7 @@
 
   function floorSystemCost(systemId, currentLevel, state) {
     const def = D.FLOOR_SYSTEMS[systemId];
-    const eff = techEffects(state);
-    let raw = def.baseCost * Math.pow(def.costGrowth, currentLevel);
+    const raw = def.baseCost * Math.pow(def.costGrowth, currentLevel);
     return Math.ceil(raw);
   }
 
@@ -132,19 +162,11 @@
     return (def.baseRatePerSec + def.ratePerLevel * (lvl - 1)) * (1 + eff.rndRateMult);
   }
 
-  function vaultOfflineCapHours(state) {
-    const lvl = state.rooms.vault.level;
-    const def = D.ROOMS.vault;
-    const eff = techEffects(state);
-    const base = lvl <= 0 ? 1 : def.baseOfflineCapHours + def.offlineCapPerLevel * (lvl - 1);
-    return base + eff.offlineCapAdd;
-  }
-
   function vaultInterestPerHour(state) {
     const lvl = state.rooms.vault.level;
     if (lvl <= 0) return 0;
     const def = D.ROOMS.vault;
-    return def.baseInterestPerHour + def.interestPerLevel * lvl;
+    return def.baseInterestPerHour + def.interestPerLevel * lvl + techEffects(state).vaultInterestAdd;
   }
 
   function powerCapacity(state) {
@@ -164,38 +186,21 @@
     return demand;
   }
 
-  function powerOk(state) {
-    return powerDemand(state) <= powerCapacity(state) + 1e-9;
-  }
 
-  // ---- Prestige ------------------------------------------------------------
-  // First rebirth requires 2M max cash held in the current run. Each later rebirth
-  // requires 2.5x the previous peak-cash threshold.
-  function prestigeRequirement(state) {
-    return D.PRESTIGE.minMaxMoneyToUnlock * Math.pow(2.5, state.prestige.count);
-  }
-
-  function prestigeUnlocked(state) {
-    return state.maxMoney >= prestigeRequirement(state);
-  }
-
-  function prestigeGain(state) {
-    const eff = techEffects(state);
-    const base = Math.floor(Math.sqrt(state.maxMoney / D.PRESTIGE.divisor));
-    return Math.max(0, Math.floor(base * (1 + eff.prestigeGainMult)));
-  }
-
+  // ---- Tech tree affordability ------------------------------------------
   function techCostAffordable(state, tech) {
-    return state.prestige.perkPoints >= tech.cost && state.research >= tech.researchCost;
+    return !!tech && (state.skills.points || 0) >= Number(tech.cost || 0) && state.research >= Number(tech.researchCost || 0);
   }
+
   function techPurchaseReason(state, tech) {
-    if (state.prestige.perkPoints < tech.cost) return "points";
-    if (state.research < tech.researchCost) return "research";
+    if (!tech) return "invalid";
+    if ((state.skills.points || 0) < Number(tech.cost || 0)) return "points";
+    if (state.research < Number(tech.researchCost || 0)) return "research";
     return null;
   }
 
   function techRequirementsMet(state, tech) {
-    return tech.requires.every((r) => !!state.prestige.tech[r]);
+    return !!tech && Array.isArray(tech.requires) && tech.requires.every((id) => !!state.skills.tech[id]);
   }
 
   // ---- Formatting -----------------------------------------------------------
@@ -224,12 +229,11 @@
   }
 
   G.Econ = {
-    techEffects, tierPlacedCount, machineCost, tierUnlocked,
-    upgradeCost, machineCooldown, machineBaseYield, machineCritChance, machineCritMult,
+    techEffects, tierPlacedCount, machineCountById, machineCostById, machineCost, tierUnlocked,
+    upgradeCost, machineDefinition, machineCooldown, machineBaseYield, machineCritChance, machineCritMult,
     floorOutputMult, floorSystemCost, collectorTickSeconds,
-    roomCost, rndRatePerSec, vaultOfflineCapHours, vaultInterestPerHour,
-    powerCapacity, powerDemand, powerOk,
-    prestigeRequirement, prestigeUnlocked, prestigeGain, techCostAffordable, techPurchaseReason, techRequirementsMet,
+    roomCost, rndRatePerSec, vaultInterestPerHour,
+    powerCapacity, powerDemand, techCostAffordable, techPurchaseReason, techRequirementsMet,
     formatMoney, formatTime,
   };
 })(window.Game = window.Game || {});

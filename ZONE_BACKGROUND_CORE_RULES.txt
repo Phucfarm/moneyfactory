@@ -1,0 +1,1323 @@
+MONEY FACTORY TYCOON
+ZONE CORE + BACKGROUND CORE + AUDIO CORE ENGINEERING RULES
+Version: 1.8
+Scope: ONLY the Zone Core, Background Core, and their Audio Core integration being developed in this project.
+Audience: future AI coding agents, maintainers, and content authors.
+Project standard: treat this as an international commercial production codebase.
+
+============================================================
+0. NON-NEGOTIABLE PRINCIPLES
+============================================================
+1. Zone content is data-first. Put balance, names, requirements, machines,
+   secrets, visual configuration, and mechanic declarations in JSON whenever
+   the behavior can be represented as existing framework data.
+2. Every Zone MUST declare at least one JavaScript mechanic. A Zone mechanic
+   is not optional. The mechanic may be tiny, but it must exist and be loaded
+   through the Zone mechanic registry.
+3. Zone mechanics are behavior-first JavaScript and MUST use the Zone mechanic
+   contract/base class. Do not create ad-hoc global callbacks for a Zone.
+4. Backgrounds are a separate system from Zones. Zone Core owns gameplay;
+   Background Core owns visual presentation and optional visual interaction.
+5. Audio is a separate presentation system. Audio Core owns playback, volume,
+   external asset loading, synthesized fallback, and content-to-event routing.
+   Zone/content JSON may declare audio, but gameplay code must not depend on an
+   audio file existing for the game to remain functional.
+6. A background MUST NOT mutate money, research, skills, machines, unlocks,
+   save data, Prestige/Rebirth data, or other gameplay state. Background JS is
+   presentation only.
+7. A mechanic gameplay context MUST expose a safe, read-only game facade, not
+   the raw global Game object. `ctx.game.DATA` and `ctx.game.Econ` are the
+   documented read-only bridge. Mechanics must not receive Save, Factory, UI,
+   Render, Platform, localStorage, or unrelated global services through the
+   context.
+8. A mechanic MUST NOT directly replace core economy functions or write to
+   state.money as a shortcut. Use Factory/Core APIs and Zone hooks. The Zone
+   layer must remain an adapter, not a second economy engine.
+9. A mechanic must have deterministic live behavior when its effect changes
+   production, cooldown, resources, or other time-based outcomes.
+10. Never make the game depend on network requests for Zone/Background content
+   or audio. Audio assets are local project files and are copied into the
+   production distribution.
+11. Never silently overwrite a registered mechanic/background script id.
+12. Never manually edit generated runtime content or dist/index.html.
+
+============================================================
+1. ARCHITECTURE: ZONE + BACKGROUND + AUDIO CORES, ONE CONTENT PIPELINE
+============================================================
+The project intentionally separates three runtime responsibilities:
+
+  Zone Core
+    content/zones.json
+        -> build validation
+        -> generated src/00-zone-content.js
+        -> ZoneRuntime
+        -> ZoneMechanicContract / ZoneMechanic
+        -> adapters into Factory / Economy / Save
+
+  Background Core
+    content/backgrounds.json
+        -> build validation
+        -> generated src/00-background-content.js
+        -> BackgroundCore
+        -> optional ZoneBackground behavior classes
+        -> CSS/DOM visual layer
+
+  Audio Core
+    content/audio.json
+        -> build validation
+        -> generated src/00-audio-content.js
+        -> external assets under assets/audio/
+        -> src/08-audio.js playback layer
+        -> Zone/content audio hooks + synthesized fallback
+
+Why they are separate:
+- Gameplay Zones can change without rewriting visual rendering.
+- Backgrounds can become extremely complex without contaminating economy code.
+- A visual bug should not have a path to change cash or progression.
+- A gameplay mechanic should be testable without relying on DOM painting.
+- Audio can be replaced or omitted without changing gameplay semantics; missing
+  or blocked audio must degrade to silence/synthesized fallback rather than throw.
+
+The DOM structure is:
+  #zone-background  = Background Core layer, behind the factory canvas
+  #gameCanvas       = factory floor + machines + particles
+  UI layers         = HUD, selectors, modal panels, toast, etc.
+
+Background behavior receives a read-only `stateView` snapshot, not the live
+game state object. This keeps visual code from accidentally mutating gameplay.
+
+The canvas is transparent outside the placement floor, so the CSS background
+is actually visible behind the machine area and around it.
+
+============================================================
+2. SOURCE-OF-TRUTH AND GENERATED FILES
+============================================================
+SOURCE FILES (EDIT THESE):
+  content/zones.json
+  content/backgrounds.json
+  content/audio.json
+  src/zones/*.js
+  src/backgrounds/*.js
+  src/backgrounds/*.css
+
+GENERATED FILES (DO NOT EDIT BY HAND):
+  src/00-zone-content.js
+  src/00-background-content.js
+  dist/index.html
+
+BUILD:
+  node build.js
+
+The build performs validation before producing the production artifact.
+If validation fails, the build MUST fail rather than producing partial output.
+
+============================================================
+3. DIRECTORY AND NAMING STANDARD
+============================================================
+Keep the following layout:
+
+  content/
+    zones.json
+    backgrounds.json
+    zone-template.json
+    background-template.json
+
+  assets/
+    audio/
+      music/
+      sfx/
+
+  src/
+    04-zone-framework.js
+    04-zone-mechanic-loader.js
+    04-background-core.js
+    04-background-loader.js
+    zones/
+      <zone-or-mechanic-family>.js
+      zone-mechanic-template.js
+    backgrounds/
+      <background-id>.css
+      <background-id>.js       (only when JS behavior is needed)
+      background-template.js
+
+Naming:
+- Zone id: zone_<theme_or_name>
+- Background id: bg.<theme_or_name>
+- Mechanic instance id: <zone_or_system>_<mechanic>
+- Mechanic script id: <family>.<mechanic>
+- Zone machine id: <zone>_<machine_name>
+- Secret id: <zone>_<secret_name>
+- Background JS behavior id: <family>.<behavior>
+- CSS className: zone-background--<slug>
+
+IDs must be stable after release. Do not rename an id just to improve wording;
+ids are save/content references.
+
+============================================================
+4. ZONE JSON CONTRACT
+============================================================
+A Zone has these important fields:
+
+  id
+  order
+  nameKey
+  descriptionKey
+  backgroundId
+  theme
+  unlock
+  stats
+  floors[]
+  machines[]
+  mechanics[]       REQUIRED, at least one entry
+  secrets[]
+  variables{}        optional Zone-local persistent variables
+  upgrades[]         optional Zone-local level-based content
+  purchases[]        optional Zone-local one-time content
+
+Minimal conceptual example:
+
+  {
+    "id": "zone_space",
+    "order": 1,
+    "nameKey": "zone.space.name",
+    "descriptionKey": "zone.space.desc",
+    "backgroundId": "bg.space",
+    "theme": {
+      "background": "#101820",
+      "floor": "#202a33",
+      "tileA": "rgba(255,255,255,0.02)",
+      "tileB": "rgba(255,255,255,0.04)",
+      "grid": "rgba(255,255,255,0.06)"
+    },
+    "unlock": {
+      "requirements": [
+        { "type": "maxMoney", "value": 5000000000, "op": "gte" },
+        { "type": "mps", "value": 1000000, "op": "gte" }
+      ],
+      "cost": 1000000000
+    },
+    "floors": [],
+    "machines": [],
+    "mechanics": [
+      {
+        "id": "space_meteor",
+        "script": "space.meteor",
+        "source": "src/zones/space.js",
+        "config": {},
+        "initialState": {}
+      }
+    ],
+    "secrets": []
+  }
+
+BUILD REQUIREMENT:
+- Zone order starts at 0 and is contiguous.
+- Every Zone points to an existing backgroundId.
+- Every Zone has >= 1 mechanic.
+- Every mechanic has script + source.
+- source must remain inside the project root.
+- source must exist.
+- ids must be unique within their category.
+- machine ids must be globally unique.
+- mechanic script ids may be REUSED across Zones, but the same script id
+  must always map to the same source file.
+
+============================================================
+5. ZONE MACHINES
+============================================================
+Zone machines are independent from the global rarity/tier machines.
+They may be dramatically stronger than all machines in older Zones.
+
+Each Zone machine is placed in its parent Zone's machines[] and implicitly has
+zoneId equal to that parent Zone.
+
+IMPORTANT PLACEMENT RULE:
+  A Zone N machine may be placed only in Zone N or a later Zone.
+  A Zone N machine MUST NEVER be placeable in Zone 0..N-1.
+
+This is enforced by Zone Core using numeric Zone order. Do not duplicate this
+rule in UI code and do not rely on UI to enforce it.
+
+UNLOCK RULE:
+- Seeing a machine is not the same as owning/unlocking it.
+- Every non-starter Zone declares exactly 2 Zone machines.
+- Every Zone machine is manually unlockable; automatic Zone-machine unlocking is not allowed.
+- The global machine catalog MUST show locked future machines.
+- A locked future machine may lead the player to the Zone Atlas preview.
+- Once its home Zone is unlocked, its own manual requirements/cost can still
+  block it until the player explicitly unlocks it.
+- The machine remains selectable globally after unlock.
+- Placement is checked separately against the target Zone order.
+
+Why selection and placement are separate:
+  machine selection is global UX;
+  placement is a gameplay legality check.
+
+Never make a machine disappear from the catalog just because its Zone is locked.
+
+============================================================
+6. REQUIREMENT SYSTEM
+============================================================
+Use existing generic requirement types instead of writing custom if-statements
+inside UI code.
+
+Supported framework types include:
+  money
+  maxMoney
+  research
+  mps
+  machineCount
+  machineOwned
+  machineUnlocked
+  zoneUnlocked
+  secretDiscovered
+  floorUnlocked
+  zoneStat
+  mechanicState
+
+`machineCount` may optionally use `tag` instead of `machineId` to count all
+placed machine instances whose machine definition declares that tag. `machineId`
+and `tag` are mutually exclusive. This remains a generic requirement capability;
+do not create Zone-specific count branches.
+
+Supported operators:
+  gte (default)
+  gt
+  eq
+  lt
+  lte
+
+If a new requirement can be expressed by an existing generic type, DO NOT add
+another JavaScript branch. Add data instead.
+
+Only introduce a new requirement type when it is a real framework capability
+needed by multiple future Zones. If it is specific to one weird Zone mechanic,
+prefer mechanicState or zoneStat instead.
+
+
+============================================================
+7. ZONE-LOCAL UPGRADES AND PURCHASABLES
+============================================================
+Zone-local Upgrades/Purchasables are a first-class Zone Core content system.
+They are distinct from the shared/global systems such as floor Conveyor and
+Auto Collect. Each Zone may define its own systems based on its theme and
+mechanics. These entries belong only to the Zone that declares them.
+
+Terminology:
+  Upgrade
+    - level-based content; maxLevel may be greater than 1;
+    - each purchase increases the stored level by exactly one;
+    - JSON defines cost and effects for each level step through the generic
+      cost/effect model.
+
+  Purchase
+    - one-time Zone-local content; maxLevel is exactly 1;
+    - purchase is persistent and remains owned in that Zone forever;
+    - JSON effects may enable a feature by setting a Zone variable to true.
+
+The generic UI panel MUST render content in this order:
+  1. current Zone's local Upgrades/Purchases;
+  2. shared/global systems (for example Conveyor and Auto Collect);
+  3. shared/global Rooms or other global systems.
+
+A Zone-local entry MUST NOT appear as a global system in another Zone. The
+entry's saved ownership/level lives at:
+  state.zones[].upgrades[contentId]
+  state.zones[].purchases[contentId]
+
+Do not store Zone-local ownership in a global object, localStorage, or a
+mechanic class instance. Save/load sanitation MUST discard unknown content ids
+and clamp known Upgrade levels to the declared maxLevel. One-time Purchases
+MUST remain boolean ownership flags.
+
+------------------------------
+7.1 JSON-FIRST CONTENT MODEL
+------------------------------
+Ordinary Zone-local content MUST be fully declarable in zones.json. A content
+entry can define:
+  id
+  nameKey
+  descriptionKey (optional)
+  icon (optional)
+  maxLevel
+  cost
+  visibility (optional)
+  unlock (optional)
+  effects[]
+
+Cost MAY be either:
+  number
+  { "base": number, "growth": number }
+
+For a growth cost, the price for the next level is:
+  ceil(base * growth ^ currentLevel)
+
+Do not add a JavaScript branch merely because a Zone has a new Upgrade name.
+The UI/Core MUST discover these entries from Zone JSON and render them
+dynamically.
+
+------------------------------
+7.2 ZONE VARIABLES ARE THE DATA CONTRACT WITH MECHANICS
+------------------------------
+Zone JSON MAY declare:
+  "variables": { ... }
+
+These variables are persistent state owned by that Zone and are the primary
+data contract between data-driven Zone content and the Zone's JavaScript
+mechanics. Example conceptual state:
+  memory.capacity
+  memory.leakRate
+  memory.gcEnabled
+
+A Zone mechanic MAY read these variables through:
+  ctx.zoneVariables
+  this.variable(ctx, path, fallback)
+
+and MAY update them through the ZoneMechanic helpers when the behavior itself
+needs to change them.
+
+Mechanics MUST NOT assume a specific Upgrade id exists merely to consume an
+effect. Prefer reading the resulting Zone variable instead:
+  GOOD:  read memory.gcEnabled
+  BAD:   if upgradeId === "garbage_collector" ...
+
+This keeps content definitions replaceable and allows multiple different
+Upgrades/Purchases to affect the same mechanic variables.
+
+Mechanic code MUST NOT cache ctx.zoneVariables or nested variable references
+across lifecycle hooks. Read the current context/variable path when needed.
+
+------------------------------
+7.3 GENERIC EFFECT SYSTEM
+------------------------------
+Each Zone-local content entry MUST declare one or more effects. Effects target
+a path RELATIVE TO zone.variables. They MUST NOT write directly to global game
+state. Supported operations are:
+  set
+  add
+  subtract
+  multiply
+  divide
+  min
+  max
+
+Examples:
+  { "target": "memory.capacity", "operation": "add", "value": 512 }
+  { "target": "memory.leakRate", "operation": "subtract", "value": 0.05 }
+  { "target": "memory.gcEnabled", "operation": "set", "value": true }
+
+The effect engine MUST apply a content purchase atomically: calculate all
+effects against a candidate variable object first, validate them, then spend
+money and commit the new Zone variable state. If any effect is invalid, no
+variable or money change may be committed.
+
+Arithmetic effects require numeric values. Division by zero is invalid. Paths
+MUST be bounded and MUST reject prototype-pollution keys such as __proto__,
+prototype, and constructor.
+
+Every Zone-local effect target MUST resolve to a variable declared in
+zone.variables. A typo or undeclared target MUST fail validation/build rather
+than silently creating a second state contract.
+
+------------------------------
+7.4 VISIBILITY, UNLOCKING, AND SECRETS
+------------------------------
+Visibility and purchase eligibility are separate concepts.
+
+  visibility.hidden = true
+    means the UI hides the content's identity until visibility.requirements
+    are satisfied.
+
+  unlock.requirements
+    means the player may see the real item but cannot buy it until the
+    requirements are satisfied.
+
+A hidden Zone-local item MAY be revealed by a Secret, but Secrets MUST remain
+independent content. One Secret may reveal or enable multiple Zone-local
+Upgrades/Purchases. Do NOT create a one-secret-per-item architecture.
+
+Use the existing generic secretDiscovered requirement rather than embedding
+secret checks into the Upgrade/Purchase JavaScript or UI.
+
+Before visibility unlock, the UI MUST NOT reveal the hidden item's identifying
+name, description, or price. After the reveal, it renders like normal Zone-local
+content.
+
+------------------------------
+7.5 ZONE-ONLY OWNERSHIP
+------------------------------
+If an Upgrade/Purchase is declared by Zone A, only Zone A owns its persistent
+level/purchased state. Leaving the Zone does not reset it. Entering another
+Zone does not make the item available there.
+
+Examples:
+  Computer Zone: RAM Lv 5, GC = owned
+  Desert Zone: no RAM/GC state and no RAM/GC UI
+
+Do not expose Zone-local state as global Economy/Factory variables unless an
+explicit future cross-Zone feature is designed and documented.
+
+------------------------------
+7.8 FLOOR UNLOCKS AND RUNTIME OWNERSHIP
+------------------------------
+Floor unlocks use the same generic requirement engine as other Zone content.
+Preferred JSON form:
+  {
+    "unlock": {
+      "requirements": [ { "type": "money", "value": 8000, "op": "gte" } ],
+      "cost": 8000
+    }
+  }
+Legacy starter content may use { "type": "money", "amount": N }; Core MUST
+translate that compatibility form without creating a second unlock system.
+
+Runtime-only floor timers MUST be keyed by Zone + Floor, not floor id alone,
+because floor ids are only required to be unique inside their owning Zone.
+
+Zone play time is measured once per Zone tick when at least one floor in that
+Zone is unlocked. It MUST NOT be multiplied by the number of unlocked floors.
+
+------------------------------
+7.6 UI INTEGRATION
+------------------------------
+Zone-local content MUST share the same user-facing panel as shared systems.
+Do not create a separate top-level button for every Zone's Upgrade/Purchase
+system.
+
+The UI must be data-driven:
+  currentZone.upgrades[]
+  currentZone.purchases[]
+are rendered first, followed by shared/global systems.
+
+The UI MUST NOT contain Zone-specific branches such as:
+  if (currentZone === "zone_computer") render RAM ...
+
+Hidden content uses a generic unknown/locked presentation. Requirement-locked
+content uses the generic requirement presentation. Purchase buttons call the
+Zone Core API; they do not mutate variables, money, or save data directly.
+
+------------------------------
+7.7 SAVE/LOAD AND MIGRATION
+------------------------------
+Zone-local state is part of the normal game save. It must survive page reloads,
+leaving/re-entering Zones, and normal save import/export.
+
+When a content definition is removed or renamed after release, use an explicit
+content migration/versioning decision; never leave orphaned runtime state to
+accumulate forever. Stable ids are save references.
+
+A save that contains an unknown Upgrade/Purchase id MUST be sanitized away.
+A save with an out-of-range known Upgrade level MUST be clamped to maxLevel.
+A Purchase is valid only as owned/unowned; partial levels are invalid.
+
+------------------------------
+7.8 AUTHORING RULE
+------------------------------
+For an ordinary theme-specific Upgrade/Purchase, the authoring workflow should
+be:
+  1. declare the Zone variables in zones.json;
+  2. declare the Upgrade/Purchase in zones.json;
+  3. point effects at the declared Zone variables;
+  4. write/update the Zone mechanic JS to consume those variables;
+  5. run build validation and tests.
+
+The Zone mechanic JS is still mandatory. JSON does not replace the mechanic.
+JSON defines the content, values, requirements, and resulting state changes;
+JavaScript defines the Zone's actual simulation/algorithm that consumes that
+state.
+
+Do NOT create a new JS file just to represent a simple stat upgrade when the
+generic effect engine already handles it.
+
+============================================================
+8. MECHANIC OOP CONTRACT
+============================================================
+JavaScript has classes and inheritance, but it does not have a native interface
+keyword like some other languages. This project therefore uses an abstract
+contract class:
+
+  ZoneMechanicContract
+        |
+        v
+  ZoneMechanic
+        |
+        +--> ExampleMechanic
+        +--> SpaceMechanic
+        +--> MeteorMechanic
+        +--> VirtualWorldMechanic
+
+Use ZoneMechanic as the normal base class.
+Use ZoneMechanicContract as the stable framework contract and validation layer.
+
+MECHANIC UI / DISCOVERY METADATA:
+- Every mechanic must declare `nameKey` and `descriptionKey`. These are the
+  sole source for the player-facing mechanic title and general-purpose summary.
+- A mechanic may optionally declare `visibility`.
+- `visibility.hidden: true` means the mechanic is hidden in the Zone UI until its
+  generic `visibility.requirements[]` are satisfied. A hidden mechanic must also
+  provide `visibility.hintKey`.
+- Hidden mechanic discovery is persistent in:
+    state.zones[].mechanicDiscoveries[]
+- The core owns discovery state and emits `mechanicDiscovered`. UI listens to
+  the event and may notify the player, but UI must not implement the unlock rule.
+- Hidden/revealed is presentation metadata only. Whether a mechanic's gameplay
+  effect is active is decided by the mechanic's own deterministic logic/state.
+- The Zone UI must be data-driven: it may show revealed mechanics by their
+  `nameKey`/`descriptionKey`, and undiscovered mechanics only as a masked entry
+  plus `hintKey`. It must never contain Zone-specific mechanic branches.
+
+A mechanic should look conceptually like:
+
+  class MeteorMechanic extends G.Zone.ZoneMechanic {
+    onBeforeZoneTick(ctx) { ... }
+    modifyProduction(ctx, multiplier) { ... }
+    onMachineCycle(ctx, result) { ... }
+  }
+
+  G.Zone.registerMechanic("space.meteor", MeteorMechanic);
+
+INHERITANCE RULE:
+- Prefer inheritance when mechanics share reusable behavior/state handling.
+- Do not use inheritance just to make a class hierarchy look sophisticated.
+- Extract a base class when at least two mechanics genuinely share behavior.
+- Avoid giant universal base classes with dozens of theme-specific flags.
+
+Example:
+  class HazardMechanic extends G.Zone.ZoneMechanic { ... }
+  class MeteorMechanic extends HazardMechanic { ... }
+  class DebrisStormMechanic extends HazardMechanic { ... }
+
+Composition is also allowed. A mechanic can own small helper objects when
+composition is clearer than inheritance.
+
+============================================================
+9. MECHANIC LIFECYCLE HOOKS
+============================================================
+The core exposes stable hook points, including:
+
+  onAttach
+  onZoneUnlocked
+  onBeforeZoneTick
+  onBeforeTick
+  onBeforeMachineCycle
+  modifyProduction
+  modifyCooldown
+  onMachineCycle
+  onMachinePlaced
+  onMachineCollected
+  onAfterTick
+  onAfterZoneTick
+  onGameEvent
+      onCheckSecrets
+  getUIState
+
+Guidance:
+- Use onBeforeZoneTick for Zone-wide timers/counters.
+- Use onBeforeTick for per-floor pre-processing.
+- Use onBeforeMachineCycle to cancel/block a cycle when a mechanic requires it.
+- All enabled mechanics still receive onBeforeMachineCycle; a returned false is aggregated and blocks the cycle. The Core MUST NOT short-circuit later mechanics merely because an earlier mechanic blocked the cycle.
+- Use modifyProduction for deterministic multipliers.
+- Use modifyCooldown for deterministic cycle timing changes.
+- Use onMachineCycle for event-driven consequences.
+- Use onMachinePlaced/onMachineCollected for interactions with machines.
+- When an interaction API can trigger mechanic events/UI, its caller passes the
+  current transient event sink through the optional `events` argument. The Core
+  must not invent a second hidden event queue for player actions.
+- Use onGameEvent for cross-system events that are already emitted by core.
+- Use onCheckSecrets for mechanic-generated discovery checks.
+- Use getUIState for persistent/state-derived UI contributions.
+- Use ctx.emitUI for bounded transient UI feedback.
+
+A hook may return an invalid value; the framework preserves the previous safe
+value. Do not depend on exceptions as normal control flow.
+
+
+============================================================
+10. MECHANIC UI CONTRACT
+============================================================
+A Zone mechanic may contribute player-facing UI, but mechanics MUST remain
+UI-agnostic gameplay modules. They do not manipulate DOM, canvas, CSS classes,
+or global UI functions directly.
+
+The contract has two complementary paths:
+
+A. Persistent/state-derived UI:
+  getUIState(ctx)
+
+Use this for information that should remain correct whenever the UI is redrawn,
+such as:
+  - a machine is currently disabled;
+  - a Zone-wide effect is currently active;
+  - a machine has an active temporary buff;
+  - a numeric timer/progress indicator.
+
+B. Transient event UI:
+  ctx.emitUI({ ... })
+
+Use this for momentary feedback, such as:
+  - "Cold Current started";
+  - "Machine became waterlogged";
+  - a mechanic event that deserves a short screen message.
+
+SUPPORTED GENERIC UI PRIMITIVES:
+- `machineStatuses[]`: state-derived machine overlays/badges.
+- `zoneIndicators[]`: state-derived Zone status pills.
+- `banner` UI events: short-lived, bounded screen messages.
+
+The primitives deliberately use data, not presentation code. A descriptor may
+provide labelKey/detailKey, icon, tone, variant, value/valueUnit, progress,
+and priority. The renderer decides the visual appearance.
+
+MACHINE STATUS VARIANTS:
+  disabled | buff | warning | info
+
+UI TONES:
+  info | good | warn | danger | muted
+
+RULES FOR UI SAFETY / FREEDOM:
+1. Mechanics may choose WHEN and WHERE to expose a supported UI primitive.
+2. Mechanics may not inject raw HTML, CSS, DOM nodes, event listeners, or
+   arbitrary canvas drawing through the Zone mechanic contract.
+3. Player-facing text must use localization keys (`labelKey`/`detailKey`).
+   Do not hard-code full English/Vietnamese/Indonesian sentences in renderer code.
+4. The core validates and bounds UI descriptors. Invalid UI data is ignored;
+   it must not crash the factory.
+5. The core limits transient mechanic UI event bursts per frame. The UI also
+   deduplicates events by Zone + mechanic + event id using the supplied cooldown.
+6. State-derived indicators are recomputed from gameplay state after load/import;
+   transient UI events are not save data and must never become gameplay state.
+7. A mechanic may expose multiple UI contributions, but the renderer owns the
+   final layout and caps the number of simultaneous Zone indicators.
+8. When a new primitive is genuinely needed, add it to Zone Core + this rule
+   file first. Do not create one-off DOM branches inside individual mechanics.
+9. UI is informational/presentation only. It must not be the authority for
+   whether a machine may cycle or whether an effect is active. Gameplay state and
+   gameplay hooks remain authoritative.
+10. `getUIState` runs through a UI-safe call boundary. A UI-only exception may
+    be logged, but MUST NOT quarantine/disable the gameplay mechanic.
+11. UI refresh MUST NOT lazily run `onAttach` or other gameplay lifecycle hooks.
+    Mechanics become eligible for state-derived UI after normal runtime attachment.
+12. `getUIState` receives a read-only runtime-instance view. It MUST NOT mutate
+    `this` runtime fields as a side channel for gameplay state.
+
+Example:
+  class TideMechanic extends G.Zone.ZoneMechanic {
+    getUIState(ctx) {
+      return {
+        zoneIndicators: [{
+          id: "tide",
+          labelKey: "mechanic.tide.active",
+          value: "x1.5",
+          tone: "info",
+          progress: 0.6
+        }]
+      };
+    }
+
+    onBeforeZoneTick(ctx) {
+      this.emitUI(ctx, {
+        kind: "banner",
+        id: "tide_started",
+        labelKey: "mechanic.tide.started",
+        tone: "info",
+        durationMs: 2400,
+        cooldownMs: 5000
+      });
+    }
+  }
+
+
+UI EXECUTION BOUNDARY:
+- getUIState(ctx) receives a read-only snapshot context. State, Zone state, Zone
+  variables, mechanic state and Zone definition are cloned/frozen snapshots.
+- UI-mode setState/setVariable/addState/addVariable are no-ops. UI-mode emit,
+  emitUI and secret discovery are no-ops. A UI read must never mutate gameplay
+  state or enqueue gameplay/UI events.
+- Hidden mechanics (visibility.hidden=true) expose no state-derived UI or
+  transient mechanic UI until discovered. Their gameplay effects remain active.
+
+Do not use the UI as a hidden second state machine. The mechanic state remains
+under state.zones[].mechanicState[mechanicId].
+
+============================================================
+10.5. AUDIO CORE CONTRACT
+============================================================
+Audio is an optional presentation layer. Existing JSON that has no `audio`
+field remains valid and keeps the synthesized Web Audio behavior that already
+existed before external assets were introduced.
+
+SOURCE OF TRUTH:
+  content/audio.json
+    -> reusable asset catalog (`assets[]`)
+  assets/audio/music/*
+    -> music files
+  assets/audio/sfx/*
+    -> one-shot/ambient SFX files
+
+Generated runtime data:
+  src/00-audio-content.js
+
+Audio Core owns:
+- resolving an audio asset id or a direct local file path;
+- loading/playing external audio files;
+- music loop, cross-zone replacement, volume, and optional fade;
+- SFX overlap, per-hook cooldown, and volume;
+- synthesized fallback playback used by the legacy `G.Audio.sfx*` API;
+- deciding whether a configured event sound replaces a legacy default sound.
+
+Audio Core MUST NOT own or mutate money, research, skills, machines, Zone unlocks,
+save data, or Zone variables. It is a presentation service coordinated by Main.
+
+SUPPORTED CONTENT SHAPE:
+  "audio": {
+    "music": "music.asset.id",
+    "events": {
+      "secretDiscovered": "sfx.asset.id",
+      "zoneUnlocked": {
+        "asset": "sfx.zone.unlock",
+        "replaceDefault": true
+      }
+    }
+  }
+
+The same optional `audio` object may be attached to Zone-owned content such as:
+  Zone
+  Floor
+  Machine
+  Mechanic
+  Secret
+  Zone-local Upgrade
+  Zone-local Purchase
+
+Event aliases are normalized by Audio Core. Examples:
+  Secret        discover -> secretDiscovered
+  Mechanic      discover -> mechanicDiscovered
+  Machine       place / collect / cycle / crit / unlock
+  Floor         unlock
+  Zone          unlock
+
+Event keys not listed above are also allowed on a Zone as generic event names.
+This keeps future mechanics from requiring another hard-coded Audio Core branch.
+
+A sound reference may be:
+- a reusable asset id declared in content/audio.json; or
+- a direct path such as `assets/audio/sfx/my-effect.mp3`.
+Direct external audio references MUST stay under `assets/audio/` and use a
+browser-supported audio extension. No network URL is part of the content contract.
+
+Optional audio spec fields include:
+  asset / src
+  volume          0..1
+  loop            boolean
+  playbackRate    >0..4
+  cooldownMs      >=0
+  activeOnly      boolean
+  replaceDefault  boolean
+  fadeInMs        >=0 (music)
+  fadeOutMs       >=0 (music)
+
+`replaceDefault: true` means the matching legacy synthesized event sound is
+not played. Without it, the custom file layers on top of the existing default.
+This preserves backward compatibility while allowing authored sound design to
+completely take over a particular event when desired.
+
+Music is Zone-owned, not Background-owned. Entering a Zone calls Audio Core to
+sync that Zone's optional music definition. If no Zone music is declared, the
+legacy synthesized music continues. Background JS remains visual-only and MUST
+NOT create, stop, or mutate gameplay/audio state directly.
+
+Audio hooks MUST be optional. Removing an `audio` field, deleting a sound asset,
+or browser autoplay blocking MUST NOT prevent the simulation, save system, or
+Zone mechanics from running. The build catches missing declared local files;
+runtime playback failures fall back without crashing gameplay.
+
+============================================================
+11. MECHANIC STATE OWNERSHIP
+============================================================
+Persistent mechanic data belongs under:
+
+  state.zones[].mechanicState[mechanicId]
+
+Use the ZoneMechanic helpers:
+  this.state(ctx, path, fallback)
+  this.setState(ctx, path, value)
+  this.addState(ctx, path, delta, fallback)
+
+Do not create a second persistent store in localStorage or a global variable.
+Do not save a mechanic's state in its class instance; instances are recreated
+when the page/session starts.
+
+Class instance fields are for runtime-only state.
+Zone mechanicState is for persisted gameplay state.
+
+============================================================
+12. CORE BOUNDARY RULES FOR MECHANICS
+============================================================
+Allowed:
+- read Zone/Factory/Economy data through context or the safe documented
+  ctx.game.DATA / ctx.game.Econ read facade;
+- change the mechanic's own state;
+- update Zone stats through the designed data path;
+- emit bounded gameplay events through ctx.emit();
+- request secret discovery through ctx.discover();
+- modify production/cooldown using hooks;
+- use deterministic random seeds/state if randomness is necessary.
+
+Not allowed:
+- replacing Game.Factory.tick;
+- replacing Game.Factory.grantMoney;
+- directly editing Save/localStorage;
+- directly writing state.money to create rewards;
+- directly deleting machines from arbitrary Zones;
+- adding DOM UI as a substitute for framework hooks;
+- starting unbounded setInterval/setTimeout gameplay loops;
+- firing unlimited events per frame;
+- depending on network APIs.
+
+Only events emitted through the Zone mechanic event bridge are delivered to
+onGameEvent. Render/presentation events such as zoneMechanicUi, cycle,
+autocollect and bonusReady are not mechanic gameplay events. After a gameplay
+tick updates state, secret/mechanic discovery checks run before mechanic event
+dispatch, so newly emitted gameplay events can join the same bounded chain.
+Mechanic-emitted events may chain during the same dispatch, but the Core
+enforces a bounded mechanic-event budget per frame.
+
+The framework deliberately limits mechanic event bursts per frame.
+
+============================================================
+14. SECRETS / DISCOVERIES
+============================================================
+Secrets are data-driven content, not a second ad-hoc achievement system.
+
+A secret should define:
+  id
+  nameKey
+  hintKey
+  optional descriptionKey
+  discovery.requirements[]
+  optional reward
+
+MECHANIC COUNT / SECRET COUNT UI:
+- Zone Atlas must expose the number of defined mechanics and secrets from Zone
+  JSON; do not hard-code counts in UI.
+- Undiscovered secrets show only a masked/unknown identity plus their hint.
+- Discovered secrets may show their real name and optional description.
+- Discoveries must be announced through the generic core event pipeline.
+
+Before discovery the UI should show the hint, not the full answer.
+After discovery the real name/description becomes visible.
+
+Secret rewards supported by the framework include:
+- cash
+- research
+- unlockMachine
+- mechanicState
+
+Do not put a custom secret implementation into UI code when generic
+requirements + mechanicState can express it.
+
+For mechanic UI/discovery, use the same data-first rule: metadata belongs in
+`content/zones.json`, persistent discovery state belongs in Zone state, and the
+UI must render the generic framework result rather than owning discovery logic.
+
+Example design:
+  "hintKey": "secret.space.meteorHint"
+  "discovery": {
+    "requirements": [
+      {
+        "type": "mechanicState",
+        "mechanicId": "space_meteor",
+        "path": "minedOre",
+        "value": 1000,
+        "op": "gte"
+      }
+    ]
+  }
+
+============================================================
+15. ZONE PREVIEW / GLOBAL MACHINE CATALOG
+============================================================
+The UX has two related but separate concepts:
+
+A. Zone Atlas:
+   - shows every Zone, locked or unlocked;
+   - lets the player preview a locked Zone;
+   - previews its Background CSS and lists its machines/secrets;
+   - entering a Zone is allowed only when unlocked.
+
+B. Global Machine Catalog:
+   - shows core tier machines plus Zone machines;
+   - future locked machines remain visible;
+   - selection does not change the current Zone;
+   - placement legality is checked only when the player attempts placement.
+
+The catalog is intentionally scrollable:
+- vertical scrolling contains many Zone groups;
+- horizontal scrolling inside each group contains machines;
+- cards must truncate text rather than force layout overflow;
+- do not add another "switch Zone to choose machine" workflow.
+
+If the number of Zones becomes very large, optimize rendering with virtualized
+or collapsed catalog groups rather than restoring a Zone-specific machine list.
+The global-selection rule must remain.
+
+============================================================
+16. BACKGROUND JSON CONTRACT
+============================================================
+Backgrounds are declared in content/backgrounds.json.
+
+Important fields:
+  id
+  nameKey
+  className
+  cssSource        optional path to the CSS source file
+  css              optional/inline CSS fallback or custom properties
+  script           optional visual behavior registry id
+  source           optional JS file path; required when script is present
+  config           optional behavior configuration
+
+BUILD REQUIREMENT:
+  Every Background MUST provide a CSS representation: either cssSource or a
+  non-empty css object. Complex visuals may use both.
+
+script + source are an all-or-nothing pair.
+
+CSS background can be very sophisticated. Use gradients, multiple layers,
+patterns, pseudo-elements, filters, masks, CSS variables, and keyframes before
+reaching for JavaScript.
+
+Example:
+  {
+    "id": "bg.space",
+    "nameKey": "background.space.name",
+    "className": "zone-background--space",
+    "cssSource": "src/backgrounds/space.css",
+    "css": {
+      "background": "#050817"
+    }
+  }
+
+============================================================
+17. BACKGROUND JAVASCRIPT CONTRACT
+============================================================
+Only use a Background JS file when CSS alone is insufficient.
+
+It must extend:
+  G.Background.ZoneBackground
+
+and register with:
+  G.Background.registerBackground("space.visuals", SpaceBackgroundBehavior);
+
+Background behavior receives:
+  ctx.stateView     read-only gameplay snapshot for visual decisions
+  ctx.zoneId        active Zone id
+  ctx.zoneDef       active Zone definition
+  ctx.element       the background DOM element
+  ctx.config        JSON config for this background
+  pointer coordinates/types on pointer hooks
+
+The build rejects Background JS that directly reaches Game.Factory, Game.Econ,
+Game.Save, browser localStorage, or raw core state fields. Use stateView and
+CSS variables/events designed for visual behavior instead.
+
+Allowed behavior:
+- animation updates;
+- CSS custom property changes;
+- visual particle positioning;
+- responding to pointer input;
+- visual parallax;
+- decorative DOM changes inside #zone-background.
+
+Forbidden behavior:
+- mutate gameplay state;
+- grant money;
+- unlock Zones/machines;
+- modify skills/research;
+- write localStorage;
+- modify Factory/Economy functions.
+
+Pointer coordinates are provided as viewport/client CSS-pixel coordinates.
+The Background Core forwards input from the canvas without letting the
+background become a second gameplay input system.
+
+Locked Zone previews use CSS preview only. Interactive behavior is attached
+only to the active current Zone, not to locked Atlas previews.
+
+============================================================
+18. BACKGROUND CSS SCOPE
+============================================================
+Every Zone has:
+- a Background Core visual definition;
+- a floor theme with a distinct placement floor color;
+- tile and grid colors.
+
+Keep background CSS classes namespaced under the background class where
+possible. Avoid generic global selectors like:
+  body { ... }
+  button { ... }
+  .machine { ... }
+
+Prefer:
+  .zone-background--space { ... }
+  .zone-background--space .stars { ... }
+
+The Background Core injects CSS globally once, so class names must be unique and
+namespaced. Do not accidentally restyle UI components from a Zone background.
+
+============================================================
+19. BUILD ORDER AND LOAD ORDER
+============================================================
+Development/source mode order is intentionally deterministic:
+
+  generated Zone content
+  generated Background content
+  generated Audio content
+  DATA
+  i18n
+  State
+  Save
+  Economy
+  Zone Core
+  Zone mechanic source files
+  Background Core
+  Background behavior source files
+  Factory
+  Audio Core
+  Render
+  Input
+  UI
+  Main
+
+Do not move Zone mechanic sources before Zone Core.
+Do not move Background behavior sources before Background Core.
+
+Production build inlines all declared Zone mechanic and Background behavior
+sources and generated Audio content in exactly those positions. External audio
+files are copied to dist/assets/audio/ so the production bundle does not depend
+on a network request.
+
+============================================================
+20. VALIDATION REQUIREMENTS
+============================================================
+Before accepting a Zone/Background change, verify:
+
+CONTENT:
+- JSON parses.
+- schemaVersion is correct.
+- Zone ids are unique.
+- Zone orders are contiguous.
+- every Zone has a backgroundId.
+- every Zone has >= 1 mechanic.
+- every mechanic has script + source.
+- every source file exists inside project root.
+- every declared mechanic script id is explicitly registered by its declared
+  source file.
+- every declared background script id is explicitly registered by its declared
+  source file.
+- machine ids are globally unique.
+- each machine's source Zone is correct.
+- Zone machine placement order rule remains valid.
+- secret ids are unique inside their Zone.
+- hidden Zone-local content has at least one visibility requirement.
+- floor unlock definitions use supported generic requirements/cost forms.
+- requirement types/operators are supported.
+- background ids/class names are valid.
+
+CODE:
+- every mechanic class extends ZoneMechanic or a class derived from it.
+- every background behavior extends ZoneBackground.
+- duplicate registry ids are rejected.
+- exceptions quarantine only the broken mechanic/background behavior; UI-only
+  exceptions do not quarantine gameplay mechanics.
+- action/event sinks are passed explicitly for hooks that may emit mechanic UI/events.
+- no new global setInterval gameplay loops.
+- no direct localStorage access from mechanic/background code.
+
+RUNTIME:
+- boot from a new save.
+- boot from an old save.
+- import/export save.
+- hard reset.
+- 30-minute cumulative online skill progression.
+- machine unlock and placement.
+- a future Zone machine remains visible while its Zone is locked.
+- a Zone N machine cannot be placed in Zone N-1.
+- locked Zone can be previewed in Atlas without changing current Zone.
+- Background changes when entering a Zone.
+- Background animation/input cannot grant gameplay rewards.
+- A mechanic's persistent UI state is reconstructible from gameplay state after load/import.
+- A mechanic can emit a bounded transient UI event without touching DOM/UI APIs.
+- An active machine hazard can expose a generic machineStatus overlay without a Zone-specific renderer branch.
+- A Zone-wide timed effect can expose a generic zoneIndicator and a transient banner without creating custom DOM.
+
+BUILD:
+  node build.js
+  node --check on all JavaScript files
+  browser smoke test on dist/index.html
+
+Do not ship if build or smoke test fails.
+
+============================================================
+21. MIGRATIONS AND REMOVALS
+============================================================
+Prestige/Rebirth is NOT a current gameplay system.
+
+The current progression rule is:
+  30 minutes of cumulative ONLINE time = 1 Skill Point.
+
+The remainder is persisted in:
+  state.skills.onlineSeconds
+
+Therefore:
+  15 minutes today + 15 minutes tomorrow = 1 point.
+
+Legacy save migration may read old Prestige-era data only as a migration path
+for preserving existing research/tech progress. No current UI, unlock rule, or
+runtime calculation may depend on Prestige/Rebirth.
+
+Do not reintroduce a prestige counter merely because an old save contains one.
+
+============================================================
+22. DO NOT CREATE SPAGHETTI ZONE LOGIC
+============================================================
+BAD:
+  if (zoneId === "space") ...
+  if (zoneId === "virtual") ...
+  if (zoneId === "desert") ...
+
+spread throughout Factory, Economy, Render, Save, or Main.
+
+GOOD:
+  JSON declares the Zone and mechanic.
+  Mechanic class contains Zone-specific behavior.
+  Core exposes generic hooks/adapters.
+
+BAD:
+  create 200 if statements in Zone Core for every theme.
+
+GOOD:
+  add a generic hook or capability only when multiple future Zones need it.
+
+BAD:
+  copy/paste a whole mechanic file and change two constants.
+
+GOOD:
+  use config for balance and inheritance for reusable behavior.
+
+BAD:
+  background JS changes state.money directly.
+
+GOOD:
+  background changes CSS variables/DOM visuals only.
+
+============================================================
+23. WHEN TO USE JSON VS JAVASCRIPT
+============================================================
+Use JSON for things a designer needs to see and tune immediately:
+- id/order/name/description keys;
+- Zone-local variables;
+- Zone-local Upgrade/Purchase ids, costs, max levels, visibility, unlock requirements, and effects;
+- unlock requirements and costs;
+- Zone stats;
+- floors;
+- machine stats;
+- machine unlock requirements/costs;
+- tags;
+- secret hints/requirements/rewards;
+- background id/class/config;
+- mechanic script id and config;
+- initial mechanic state.
+
+Use JavaScript for behavior:
+- meteor collision logic;
+- virtual computer memory/CPU/overflow;
+- complex state machines;
+- timers requiring deterministic simulation;
+- custom production transforms;
+- dynamic events;
+- custom visual Background animation/input.
+
+Rule of thumb:
+  "Could a designer tune this without understanding code?" -> JSON.
+  "Does this require new behavior/algorithm/state transition?" -> JavaScript.
+
+============================================================
+24. ADDING A NEW SIMPLE ZONE: STANDARD PROCEDURE
+============================================================
+1. Add a Background entry in backgrounds.json.
+2. Add its CSS file in src/backgrounds/.
+3. Add a Zone entry in zones.json.
+4. Add the required one small mechanic entry in zones.json.
+5. Create the mechanic JS file in src/zones/.
+6. Add i18n keys outside this framework scope.
+7. Run build.js.
+8. Run syntax and browser smoke tests.
+
+If the Zone is simple, its JS mechanic may be only a few dozen lines.
+Do NOT create extra files merely to appear modular.
+
+============================================================
+25. ADDING A COMPLEX ZONE: STANDARD PROCEDURE
+============================================================
+For a large Zone such as Space or Virtual World:
+- keep all tunable numbers in Zone JSON config where practical;
+- split behavior into multiple mechanic classes when concepts are independent;
+- extract shared parent classes only when behavior is genuinely shared;
+- use mechanicState for persistent progress;
+- keep each mechanic source file focused;
+- use events rather than direct cross-system mutation;
+- use Background JS only for visuals/input, never economy.
+
+Example Space decomposition:
+  SpaceHazardBase
+    -> MeteorMechanic
+    -> SolarFlareMechanic
+
+  SpaceResourceMechanic
+
+  SpaceSecretMechanic (only if generic secret checks are insufficient)
+
+This is preferable to one 2,000-line SpaceZone class.
+
+============================================================
+26. CODE REVIEW CHECKLIST FOR FUTURE AI AGENTS
+============================================================
+Before editing this framework, ask:
+
+A. Did I solve this with existing JSON capability first?
+B. Did I avoid touching Factory/Economy unless a real adapter is required?
+C. Is the new behavior isolated in a ZoneMechanic subclass?
+D. Is persistent mechanic state in zone.mechanicState and Zone-local content state in zone.upgrades/zone.purchases?
+D2. Are Zone-local effects expressed through JSON variables/effects instead of upgrade-specific JS branches?
+D3. Do all Zone-local effect targets resolve to declared zone.variables?
+E. Is live behavior defined?
+F. Can a bad mechanic fail without crashing the entire game?
+G. Can future Zones reuse this capability?
+H. Did I accidentally make a future Zone machine placeable in an earlier Zone?
+I. Does the global machine catalog still show locked future machines?
+J. Can a locked Zone still be previewed?
+K. Is the Background strictly visual?
+K2. Is audio declared in JSON and routed through Audio Core rather than hard-coded in a Zone?
+K3. Does a custom sound use replaceDefault only when the legacy sound should be suppressed?
+L. Are generated files untouched by hand?
+M. Did I run build + syntax + browser smoke tests?
+
+If any answer is "no", fix the architecture before adding more content.
+
+============================================================
+27. FINAL DESIGN GOAL
+============================================================
+The intended maintenance experience is:
+
+Simple Zone:
+  zones.json + background CSS + tiny mechanic JS
+
+Complex Zone:
+  zones.json + background CSS/JS + several focused mechanic classes
+
+Core code should rarely change when adding ordinary Zones.
+A future AI should be able to read this file and add a Zone without inventing
+its own folder layout, state format, registry, loader, or architecture.
+
+The framework is successful when content creators mostly write JSON, while
+behavior-heavy Zones get small, isolated, testable JavaScript modules.

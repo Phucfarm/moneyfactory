@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 4,
+  "zones": [
+    {
+      "id": "zone_example",
+      "order": 1,
+      "nameKey": "zone.example.name",
+      "descriptionKey": "zone.example.desc",
+      "backgroundId": "bg.example",
+      "theme": {
+        "background": "#101820",
+        "floor": "#202a33",
+        "tileA": "rgba(255,255,255,0.02)",
+        "tileB": "rgba(255,255,255,0.045)",
+        "grid": "rgba(255,255,255,0.06)"
+      },
+      "unlock": {
+        "requirements": [
+          {
+            "type": "maxMoney",
+            "value": 1000000,
+            "op": "gte"
+          },
+          {
+            "type": "mps",
+            "value": 10000,
+            "op": "gte"
+          }
+        ],
+        "cost": 500000
+      },
+      "stats": {
+        "contentTag": "example"
+      },
+      "floors": [
+        {
+          "id": "example_f1",
+          "nameKey": "floor.1",
+          "unlock": null,
+          "audio": {
+            "events": {
+              "unlock": "sfx.floor.unlock"
+            }
+          }
+        }
+      ],
+      "machines": [
+        {
+          "id": "example_machine_a",
+          "nameKey": "machine.zoneExampleA.name",
+          "descKey": "machine.zoneExampleA.desc",
+          "baseCost": 1000000,
+          "costGrowth": 1.18,
+          "baseCooldown": 1.0,
+          "baseYield": 100000,
+          "critChance": 0.08,
+          "critMult": 3.0,
+          "particleDensity": 2,
+          "color": "#56c8ff",
+          "glow": "#d6f5ff",
+          "unlock": {
+            "manual": true,
+            "requirements": [
+              {
+                "type": "maxMoney",
+                "value": 5000000,
+                "op": "gte"
+              }
+            ],
+            "cost": 2000000
+          },
+          "tags": [
+            "zone-machine",
+            "example"
+          ],
+          "audio": {
+            "events": {
+              "place": {
+                "asset": "sfx.machine.place",
+                "activeOnly": true
+              },
+              "crit": {
+                "asset": "sfx.machine.crit",
+                "cooldownMs": 180,
+                "activeOnly": true
+              },
+              "collect": {
+                "asset": "sfx.machine.collect",
+                "activeOnly": true
+              }
+            }
+          }
+        },
+        {
+          "id": "example_machine_b",
+          "nameKey": "machine.zoneExampleB.name",
+          "descKey": "machine.zoneExampleB.desc",
+          "baseCost": 100000000,
+          "costGrowth": 1.2,
+          "baseCooldown": 0.65,
+          "baseYield": 25000000,
+          "critChance": 0.12,
+          "critMult": 4.0,
+          "particleDensity": 3,
+          "color": "#ffd66b",
+          "glow": "#fff4be",
+          "unlock": {
+            "manual": true,
+            "secretId": "example_secret",
+            "requirements": [
+              {
+                "type": "mps",
+                "value": 1000000,
+                "op": "gte"
+              }
+            ],
+            "cost": 50000000
+          },
+          "tags": [
+            "zone-machine",
+            "example",
+            "chase"
+          ]
+        }
+      ],
+      "mechanics": [
+        {
+          "id": "example_mechanic",
+          "script": "example.mechanic",
+          "source": "src/zones/example.js",
+          "config": {},
+          "initialState": {},
+          "audio": {
+            "events": {
+              "discover": "sfx.mechanic.discover"
+            }
+          }
+        }
+      ],
+      "secrets": [
+        {
+          "id": "example_secret",
+          "nameKey": "secret.example.name",
+          "hintKey": "secret.example.hint",
+          "discovery": {
+            "requirements": [
+              {
+                "type": "mechanicState",
+                "mechanicId": "example_mechanic",
+                "path": "progress",
+                "value": 100,
+                "op": "gte"
+              }
+            ]
+          },
+          "reward": {
+            "type": "unlockMachine",
+            "machineId": "example_machine_b"
+          },
+          "audio": {
+            "events": {
+              "discover": "sfx.secret.discovery"
+            }
+          }
+        }
+      ],
+      "variables": {
+        "memory": {
+          "capacity": 1024,
+          "leakRate": 1,
+          "gcEnabled": false
+        }
+      },
+      "upgrades": [
+        {
+          "id": "example_ram",
+          "nameKey": "zone.example.upgrade.ram.name",
+          "descriptionKey": "zone.example.upgrade.ram.desc",
+          "icon": "🧠",
+          "maxLevel": 10,
+          "cost": {
+            "base": 1000,
+            "growth": 1.45
+          },
+          "unlock": {
+            "requirements": []
+          },
+          "effects": [
+            {
+              "target": "memory.capacity",
+              "operation": "add",
+              "value": 512
+            }
+          ],
+          "audio": {
+            "events": {
+              "purchase": "sfx.zone.upgrade"
+            }
+          }
+        },
+        {
+          "id": "example_memory_defrag",
+          "nameKey": "zone.example.upgrade.defrag.name",
+          "descriptionKey": "zone.example.upgrade.defrag.desc",
+          "icon": "🧹",
+          "maxLevel": 5,
+          "cost": {
+            "base": 5000,
+            "growth": 1.6
+          },
+          "visibility": {
+            "hidden": true,
+            "requirements": [
+              {
+                "type": "secretDiscovered",
+                "secretId": "example_secret",
+                "value": 1
+              }
+            ]
+          },
+          "effects": [
+            {
+              "target": "memory.leakRate",
+              "operation": "subtract",
+              "value": 0.05
+            }
+          ]
+        }
+      ],
+      "purchases": [
+        {
+          "id": "example_gc",
+          "nameKey": "zone.example.purchase.gc.name",
+          "descriptionKey": "zone.example.purchase.gc.desc",
+          "icon": "♻️",
+          "maxLevel": 1,
+          "cost": 25000,
+          "visibility": {
+            "hidden": true,
+            "requirements": [
+              {
+                "type": "secretDiscovered",
+                "secretId": "example_secret",
+                "value": 1
+              }
+            ]
+          },
+          "unlock": {
+            "requirements": [
+              {
+                "type": "secretDiscovered",
+                "secretId": "example_secret",
+                "value": 1
+              }
+            ]
+          },
+          "effects": [
+            {
+              "target": "memory.gcEnabled",
+              "operation": "set",
+              "value": true
+            }
+          ],
+          "audio": {
+            "events": {
+              "purchase": "sfx.zone.purchase"
+            }
+          }
+        }
+      ],
+      "audio": {
+        "music": {
+          "asset": "music.example.zone",
+          "loop": true,
+          "fadeInMs": 900,
+          "fadeOutMs": 900
+        },
+        "events": {
+          "zoneUnlocked": {
+            "asset": "sfx.zone.unlock",
+            "replaceDefault": true
+          }
+        }
+      }
+    }
+  ]
+}

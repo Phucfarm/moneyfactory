@@ -47,16 +47,12 @@
     }
   }
 
-  // Returns { state, isNewGame, offlineElapsedSeconds }
+  // Returns { state, isNewGame }
   function load() {
     const raw = loadRaw();
     const state = G.State.sanitizeState(raw);
     const isNewGame = !raw;
-    let offlineElapsedSeconds = 0;
-    if (!isNewGame && typeof raw.lastActiveTime === "number") {
-      offlineElapsedSeconds = Math.max(0, (Date.now() - raw.lastActiveTime) / 1000);
-    }
-    return { state, isNewGame, offlineElapsedSeconds };
+    return { state, isNewGame };
   }
 
   function hardReset() {

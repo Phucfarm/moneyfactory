@@ -8,11 +8,21 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div id="app">
+<div id="start-screen" aria-label="Money Factory">
+  <div class="start-card">
+    <div class="start-mark">$</div>
+    <div class="start-title">Money Factory</div>
+    <div class="start-rule"></div>
+    <button id="start-play" class="start-play" type="button">PLAY <span>›</span></button>
+  </div>
+</div>
 
+<div id="app" class="game-hidden">
+
+  <div id="zone-background" aria-hidden="true"></div>
   <canvas id="gameCanvas"></canvas>
+  <div id="mechanic-decoration-layer" aria-hidden="true"></div>
 
-  <!-- Top HUD -->
   <div id="hud-top">
     <div class="hud-chip">
       <span class="ico">💵</span>
@@ -27,75 +37,91 @@
       <span class="ico">⚡</span>
       <span id="hud-power-val">0/0</span>
     </div>
-    <div id="hud-location">
+    <div class="hud-chip skill-chip">
+      <span class="ico">⭐</span>
+      <span id="hud-skill-val">0</span>
+      <span class="sub" id="hud-skill-progress"></span>
+    </div>
+    <button id="hud-location" type="button">
       <span><b id="hud-zone-name">Zone</b></span>
       <span id="hud-floor-name">Floor</span>
-    </div>
-    <button id="btn-prestige-flag" class="hidden" data-i18n="hud.prestigeAvailable"></button>
+    </button>
   </div>
 
-  <!-- Zone / floor switch bar -->
   <div id="location-bar">
-    <div class="lb-group" id="zone-buttons"></div>
-    <div class="lb-group" id="floor-buttons"></div>
+    <div class="location-scroll">
+      <div class="lb-group" id="zone-buttons"></div>
+      <div class="lb-group" id="floor-buttons"></div>
+    </div>
   </div>
 
-  <!-- Tier selector -->
-  <div id="tier-selector"></div>
+  <div id="zone-machine-selector" aria-label="Machine Catalogue"></div>
+  <button id="ocean-fish-encyclopedia" class="ocean-fish-encyclopedia" type="button" hidden></button>
 
-  <!-- Bottom-right menu -->
   <nav id="bottom-menu">
+    <button class="menu-btn" data-panel="zones"><span>🗺️</span><span class="mb-label" data-i18n="menu.zones"></span></button>
     <button class="menu-btn" data-panel="rooms"><span>🏭</span><span class="mb-label" data-i18n="menu.rooms"></span></button>
-    <button class="menu-btn" data-panel="prestige"><span>♻️</span><span class="mb-label" data-i18n="menu.prestige"></span><span class="dot" id="dot-prestige"></span></button>
     <button class="menu-btn" data-panel="tech"><span>🧪</span><span class="mb-label" data-i18n="menu.tech"></span><span class="dot" id="dot-tech"></span></button>
     <button class="menu-btn" data-panel="settings"><span>⚙️</span><span class="mb-label" data-i18n="menu.settings"></span></button>
   </nav>
 
-  <!-- Mobile drawer toggle + drawer (extra info / controls help) -->
   <button id="drawer-toggle" class="mobile-only">☰</button>
-  <div id="mobile-drawer" class="mobile-only plate hidden" style="position:absolute; left:8px; top:138px; width:200px; z-index:23; padding:10px;"></div>
+  <div id="mobile-drawer" class="mobile-only plate hidden"></div>
 
-  <!-- Selected machine panel -->
   <div id="machine-panel" class="plate hidden"></div>
 
-  <!-- Generic modal -->
   <div id="modal-overlay" class="hidden">
     <div id="modal-content" class="plate"></div>
   </div>
 
-  <!-- Offline earnings modal -->
-  <div id="offline-modal" class="hidden">
-    <div class="plate">
-      <h2 data-i18n="offline.title"></h2>
-      <p id="offline-body"></p>
-      <div class="o-amount" id="offline-amount"></div>
-      <p id="offline-capped-note" class="m-sub hidden" data-i18n="offline.capped"></p>
-      <button class="btn brass" id="offline-claim-btn" data-i18n="offline.claim" style="width:100%; padding:12px; font-size:15px;"></button>
-    </div>
-  </div>
-
-  <!-- Toasts -->
+  <div id="mechanic-indicator-stack" aria-live="polite" aria-atomic="false"></div>
   <div id="toast-stack"></div>
 
-  <!-- Rotate notice for mobile portrait -->
-  <div id="rotate-notice" class="hidden">
-    <div class="spin-icon">📱</div>
-    <div data-i18n="app.title" style="font-size:15px; opacity:0.7;"></div>
-    <div data-i18n="orientation.rotate">Please rotate your device to landscape</div>
-  </div>
+  <!-- DEV CHEAT CODE: remove #dev-cheat-money and its handler in src/12-main.js before release. -->
+  <button id="dev-cheat-money" class="dev-cheat-btn" type="button" aria-label="DEV CHEAT: add 1 million money">+1M</button>
+
 
 </div>
 
-<script src="src/00-data.js"></script>
-<script src="src/01-i18n.js"></script>
-<script src="src/02-state.js"></script>
-<script src="src/03-save.js"></script>
-<script src="src/04-economy.js"></script>
-<script src="src/05-factory.js"></script>
-<script src="src/08-audio.js"></script>
-<script src="src/09-render.js"></script>
-<script src="src/10-input.js"></script>
-<script src="src/11-ui.js"></script>
-<script src="src/12-main.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <script src="src/platform/standalone.js"></script>
+  <script src="src/platform.js"></script>
+  <script src="src/00-zone-content.js"></script>
+  <script src="src/00-background-content.js"></script>
+  <script src="src/00-audio-content.js"></script>
+  <script src="src/00-data.js"></script>
+  <script src="src/01-i18n.js"></script>
+  <script src="src/02-state.js"></script>
+  <script src="src/03-save.js"></script>
+  <script src="src/04-economy.js"></script>
+  <script src="src/04-zone-framework.js"></script>
+  <script src="src/zones/downtown.js"></script>
+  <script src="src/zones/ocean.js"></script>
+  <script src="src/04-background-core.js"></script>
+  <script src="src/05-factory.js"></script>
+  <script src="src/08-audio.js"></script>
+  <script src="src/09-render.js"></script>
+  <script src="src/10-input.js"></script>
+  <script src="src/11-ui.js"></script>
+  <script src="src/12-main.js"></script>
+
 </body>
 </html>

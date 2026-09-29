@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 2,
+  "backgrounds": [
+    {
+      "id": "bg.downtown",
+      "nameKey": "background.downtown.name",
+      "className": "zone-background--downtown",
+      "cssSource": "src/backgrounds/downtown.css",
+      "css": {
+        "background": "radial-gradient(circle at 50% 18%, rgba(79,122,162,.18), transparent 36%), radial-gradient(circle at 82% 76%, rgba(61,220,132,.08), transparent 34%), linear-gradient(145deg, #0d1117 0%, #171b22 42%, #0b0f14 100%)",
+        "backgroundSize": "auto, auto, 100% 100%",
+        "backgroundPosition": "center, center, center"
+      }
+    },
+    {
+      "id": "bg.ocean",
+      "nameKey": "background.ocean.name",
+      "className": "zone-background--ocean",
+      "cssSource": "src/backgrounds/ocean.css",
+      "script": "ocean.abyss",
+      "source": "src/backgrounds/ocean.js",
+      "config": {
+        "lightShaftCount": 5,
+        "bubbleCount": 20,
+        "siltCount": 34,
+        "kelpClumpCount": 8
+      },
+      "css": {
+        "background": "linear-gradient(180deg, #0e6074 0%, #0a4259 22%, #063042 51%, #021d2b 78%, #010d16 100%)",
+        "backgroundSize": "100% 100%",
+        "backgroundPosition": "center"
+      }
+    }
+  ]
+}

@@ -139,16 +139,18 @@
     ctx.restore();
   }
 
-  function drawFloorBackground(floor) {
+  function drawFloorBackground(floor, zoneDef) {
+    const theme = zoneDef && zoneDef.theme ? zoneDef.theme : {};
     const b = gridWorldBounds();
     const tl = worldToScreen(b.x0 - CELL * 0.6, b.y0 - CELL * 0.6);
     const br = worldToScreen(b.x0 + b.w + CELL * 0.6, b.y0 + b.h + CELL * 0.6);
 
-    ctx.fillStyle = "#171b22";
-    ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+    // The DOM Background Core owns the full-zone visual layer. Canvas stays transparent
+    // outside the placement floor so CSS backgrounds are visible underneath.
+    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 
     // floor slab
-    ctx.fillStyle = "#22262f";
+    ctx.fillStyle = theme.floor || "#22262f";
     roundRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y, 18 * camera.zoom);
     ctx.fill();
 
@@ -158,7 +160,7 @@
         const p = slotWorldPos(r, c);
         const s = worldToScreen(p.x - CELL / 2, p.y - CELL / 2);
         const size = CELL * camera.zoom;
-        ctx.fillStyle = (r + c) % 2 === 0 ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.045)";
+        ctx.fillStyle = (r + c) % 2 === 0 ? (theme.tileA || "rgba(255,255,255,0.02)") : (theme.tileB || "rgba(255,255,255,0.045)");
         ctx.fillRect(s.x, s.y, size, size);
       }
     }
@@ -175,7 +177,7 @@
     }
 
     // grid outline
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.strokeStyle = theme.grid || "rgba(255,255,255,0.06)";
     ctx.lineWidth = 1;
     for (let r = 0; r <= D.GRID_ROWS; r++) {
       const p1 = worldToScreen(b.x0, b.y0 + r * CELL);
@@ -238,9 +240,82 @@
     ctx.restore();
   }
 
-  function drawMachine(slot, isHover, isSelected) {
+  function drawMechanicStatus(status, size, cx, cy) {
+    if (!status) return;
+    const toneColor = { danger: "#ff6578", warn: "#ffc857", info: "#67d8ff", good: "#6fe39a", muted: "#a2a8b2" }[status.tone] || "#67d8ff";
+    ctx.save();
+    const alpha = status.variant === "disabled" ? 0.72 : 0.58;
+    ctx.globalAlpha = alpha;
+    if (status.variant === "disabled") {
+      ctx.fillStyle = "rgba(7,20,28,0.72)";
+      roundRect(cx - size * 0.45, cy - size * 0.34, size * 0.9, size * 0.68, 8 * camera.zoom);
+      ctx.fill();
+      ctx.strokeStyle = hexAlpha(toneColor, 0.95);
+      ctx.lineWidth = 2 * camera.zoom;
+      ctx.setLineDash([6 * camera.zoom, 4 * camera.zoom]);
+      roundRect(cx - size * 0.45, cy - size * 0.34, size * 0.9, size * 0.68, 8 * camera.zoom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (status.variant === "buff") {
+      ctx.strokeStyle = hexAlpha(toneColor, 0.95);
+      ctx.lineWidth = 3 * camera.zoom;
+      ctx.beginPath();
+      ctx.arc(cx, cy, size * 0.46, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (status.variant === "warning") {
+      ctx.fillStyle = hexAlpha(toneColor, 0.12);
+      roundRect(cx - size * 0.45, cy - size * 0.34, size * 0.9, size * 0.68, 8 * camera.zoom);
+      ctx.fill();
+    }
+
+    const icon = typeof status.icon === "string" ? status.icon : "";
+    if (icon) {
+      ctx.font = `bold ${Math.max(11, 15 * camera.zoom)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = toneColor;
+      ctx.fillText(icon, cx, cy - size * 0.02);
+    }
+    const label = typeof status.label === "string" ? status.label : "";
+    if (label) {
+      ctx.font = `bold ${Math.max(8, 8.5 * camera.zoom)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "#f4f7fb";
+      ctx.fillText(label, cx, cy + size * 0.24, size * 0.78);
+    }
+    if (Number.isFinite(Number(status.value))) {
+      ctx.font = `bold ${Math.max(8, 8 * camera.zoom)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillStyle = toneColor;
+      const unit = typeof status.valueUnit === "string" ? status.valueUnit : "";
+      ctx.fillText(String(status.value) + unit, cx, cy - size * 0.26, size * 0.76);
+    }
+    if (typeof status.value === "string") {
+      ctx.font = `bold ${Math.max(8, 8 * camera.zoom)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillStyle = toneColor;
+      ctx.fillText(status.value, cx, cy - size * 0.26, size * 0.76);
+    }
+    if (Number.isFinite(Number(status.progress))) {
+      const p = Math.max(0, Math.min(1, Number(status.progress)));
+      const barW = size * 0.68, barH = Math.max(2, 3 * camera.zoom);
+      const barX = cx - barW / 2, barY = cy + size * 0.34;
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = toneColor;
+      ctx.fillRect(barX, barY, barW * p, barH);
+    }
+    ctx.restore();
+  }
+
+  function drawMachine(slot, isHover, isSelected, mechanicStatus) {
     const m = slot.machine;
-    const tier = D.tierById(m.tierId);
+    const machine = D.machineById(m.typeId);
+    const tier = D.tierById(m.tierId) || { order: 0, color: "#9aa5ad", glow: "#c7cfd4", particleDensity: 0.5, id: "common" };
+    const visual = machine || tier;
     const p = slotWorldPos(slot.r, slot.c);
     const s = worldToScreen(p.x, p.y);
     const size = (CELL - MACHINE_PAD * 2) * camera.zoom;
@@ -249,10 +324,10 @@
     ctx.save();
 
     // glow for higher tiers
-    if (tier.order >= 2) {
+    if ((visual.order || 0) >= 2) {
       const grad = ctx.createRadialGradient(s.x, s.y, size * 0.1, s.x, s.y, size * 0.75);
-      grad.addColorStop(0, hexAlpha(tier.glow, 0.28));
-      grad.addColorStop(1, hexAlpha(tier.glow, 0));
+      grad.addColorStop(0, hexAlpha(visual.glow, 0.28));
+      grad.addColorStop(1, hexAlpha(visual.glow, 0));
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(s.x, s.y, size * 0.75, 0, Math.PI * 2);
@@ -268,8 +343,8 @@
     // body
     const bx = s.x - size * 0.42, by = s.y - bodyH * 0.55;
     const grad2 = ctx.createLinearGradient(bx, by, bx, by + bodyH);
-    grad2.addColorStop(0, shade(tier.color, 18));
-    grad2.addColorStop(1, shade(tier.color, -18));
+    grad2.addColorStop(0, shade(visual.color, 18));
+    grad2.addColorStop(1, shade(visual.color, -18));
     ctx.fillStyle = grad2;
     roundRect(bx, by, size * 0.84, bodyH, 8 * camera.zoom);
     ctx.fill();
@@ -305,11 +380,62 @@
     // gear
     const gearR = size * 0.16;
     const rot = timeAcc * (1.4 + tier.order * 0.5) * (m.banked > 0 ? 1.6 : 1);
-    drawGear(s.x + size * 0.24, by + bodyH * 0.28, gearR, 8, rot, shade(tier.color, -35));
-    drawGear(s.x + size * 0.24 - gearR * 1.3, by + bodyH * 0.28 + gearR * 0.2, gearR * 0.65, 6, -rot * 1.4, shade(tier.color, -50));
+    drawGear(s.x + size * 0.24, by + bodyH * 0.28, gearR, 8, rot, shade(visual.color, -35));
+    drawGear(s.x + size * 0.24 - gearR * 1.3, by + bodyH * 0.28 + gearR * 0.2, gearR * 0.65, 6, -rot * 1.4, shade(visual.color, -50));
+
+    // Data-driven machine silhouettes. Zone content can opt into a visual shape
+    // without adding Zone-id branches to the renderer.
+    const visualShape = visual && visual.visual && typeof visual.visual.shape === "string" ? visual.visual.shape : "";
+    if (visualShape === "abyssal") {
+      ctx.save();
+      ctx.translate(s.x + size * 0.03, by + bodyH * 0.28);
+      ctx.fillStyle = visual.glow;
+      ctx.globalAlpha = 0.95;
+      ctx.fillRect(-size * 0.08, -size * 0.04, size * 0.16, size * 0.12);
+      ctx.fillRect(-size * 0.055, -size * 0.16, size * 0.11, size * 0.22);
+      ctx.strokeStyle = visual.glow;
+      ctx.lineWidth = 2 * camera.zoom;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.17, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    } else if (visualShape === "leviathan") {
+      ctx.save();
+      ctx.translate(s.x + size * 0.03, by + bodyH * 0.28);
+      ctx.strokeStyle = visual.glow;
+      ctx.fillStyle = visual.glow;
+      ctx.globalAlpha = 0.95;
+      ctx.lineWidth = 2 * camera.zoom;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(0, 0, size * (0.08 + i * 0.055), -Math.PI * 0.8, Math.PI * 0.8);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.1, 0);
+      ctx.lineTo(size * 0.1, 0);
+      ctx.lineTo(0, size * 0.09);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    } else if (tier.id === "rare") {
+      ctx.save(); ctx.translate(s.x + size * 0.03, by + bodyH * 0.28); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = tier.glow; ctx.globalAlpha = 0.9;
+      ctx.fillRect(-size * 0.055, -size * 0.055, size * 0.11, size * 0.11); ctx.restore();
+    } else if (tier.id === "ascendant") {
+      ctx.save(); ctx.translate(s.x + size * 0.03, by + bodyH * 0.28);
+      ctx.fillStyle = tier.glow; ctx.globalAlpha = 0.9;
+      ctx.beginPath(); ctx.moveTo(0, -size * 0.09); ctx.lineTo(size * 0.09, size * 0.07); ctx.lineTo(-size * 0.09, size * 0.07); ctx.closePath(); ctx.fill(); ctx.restore();
+    } else if (tier.id === "transcendent") {
+      ctx.save(); ctx.translate(s.x + size * 0.03, by + bodyH * 0.28);
+      ctx.fillStyle = tier.glow; ctx.globalAlpha = 0.95;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5; const r = i % 2 ? size * 0.045 : size * 0.11; const x = Math.cos(a) * r, y = Math.sin(a) * r; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
 
     // tier label chip
-    ctx.fillStyle = shade(tier.color, -45);
+    ctx.fillStyle = shade(visual.color, -45);
     roundRect(bx + 4 * camera.zoom, by + 4 * camera.zoom, size * 0.28, bodyH * 0.16, 4 * camera.zoom);
     ctx.fill();
 
@@ -357,7 +483,7 @@
     }
 
     // idle smoke puffs from higher tier machines
-    if (tier.order >= 1 && Math.random() < 0.02 * tier.particleDensity) {
+    if ((visual.order || 0) >= 1 && Math.random() < 0.02 * (visual.particleDensity || 1)) {
       spawnParticle({
         kind: "smoke",
         x: s.x + (Math.random() - 0.5) * size * 0.3,
@@ -368,6 +494,12 @@
         size: 6 * camera.zoom + Math.random() * 4,
         color: "rgba(255,255,255,0.25)",
       });
+    }
+
+    if (mechanicStatus) {
+      const labelText = mechanicStatus.labelKey && G.i18n ? G.i18n.t(mechanicStatus.labelKey) : "";
+      const detailText = mechanicStatus.detailKey && G.i18n ? G.i18n.t(mechanicStatus.detailKey) : "";
+      drawMechanicStatus(Object.assign({}, mechanicStatus, { label: labelText, detail: detailText }), size, s.x, s.y);
     }
 
     ctx.restore();
@@ -471,19 +603,28 @@
   }
 
   // ---- Main frame render -------------------------------------------------------
-  function render(state, floor, dt, bonusSlotKey) {
+  function render(state, floor, dt, bonusSlotKey, mechanicUi) {
     if (!ctx) return;
     timeAcc += dt;
     ctx.save();
     ctx.scale(dpr, dpr);
 
-    drawFloorBackground(floor);
+    const zoneDef = D.zoneById(state.currentZoneId);
+    drawFloorBackground(floor, zoneDef);
+
+    const statusMap = new Map();
+    ((mechanicUi && mechanicUi.machineStatuses) || []).forEach((status) => {
+      const key = status.floorId + ":" + status.r + ":" + status.c;
+      const existing = statusMap.get(key);
+      if (!existing || (status.priority || 0) >= (existing.priority || 0)) statusMap.set(key, status);
+    });
 
     floor.grid.forEach((slot) => {
       const isHover = hoverSlot && hoverSlot.r === slot.r && hoverSlot.c === slot.c;
       const isSelected = selectedSlot && selectedSlot.r === slot.r && selectedSlot.c === slot.c;
       if (slot.machine) {
-        drawMachine(slot, isHover, isSelected);
+        const status = statusMap.get(floor.id + ":" + slot.r + ":" + slot.c) || null;
+        drawMachine(slot, isHover, isSelected, status);
         if (bonusSlotKey === slot.r + "_" + slot.c) drawBonusMarker(slot);
       } else {
         drawEmptySlot(slot.r, slot.c);

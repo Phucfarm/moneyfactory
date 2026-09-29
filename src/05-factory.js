@@ -1,19 +1,21 @@
 /* ============================================================
    05-factory.js — Factory simulation: machines, conveyors,
-   auto-collectors, zones/floors, rooms tick, and the
-   offline-earnings simulation. This is the beating heart of the
-   idle/active production loop.
+   auto-collectors, zones/floors, and rooms tick. This is the
+   beating heart of the active production loop.
    ============================================================ */
 (function (G) {
   "use strict";
   const D = G.DATA;
   const E = G.Econ;
 
-  // Runtime-only (non-persisted-critical) per-floor timers, keyed by floor id.
-  const floorRuntime = {}; // { [floorId]: { collectorTimer, bonusTimer } }
-  function rt(floorId) {
-    if (!floorRuntime[floorId]) floorRuntime[floorId] = { collectorTimer: 0, bonusTimer: 3 + Math.random() * 6 };
-    return floorRuntime[floorId];
+  // Runtime-only (non-persisted-critical) per-floor timers, keyed by Zone + floor.
+  // Floor ids are only required to be unique inside a Zone, so floor id alone
+  // is not a safe runtime key once multiple Zones exist.
+  const floorRuntime = {}; // { [zoneId + "::" + floorId]: { collectorTimer, bonusTimer } }
+  function rt(zoneId, floorId) {
+    const key = String(zoneId) + "::" + String(floorId);
+    if (!floorRuntime[key]) floorRuntime[key] = { collectorTimer: 0, bonusTimer: 3 + Math.random() * 6 };
+    return floorRuntime[key];
   }
 
   function getZone(state, zoneId) { return state.zones.find((z) => z.id === zoneId); }
@@ -29,30 +31,48 @@
     return !slot.machine;
   }
 
-  function placeMachine(state, zoneId, floorId, r, c, tierId) {
+  function normalizeMachineId(machineIdOrTierId) {
+    if (D.machineById(machineIdOrTierId)) return machineIdOrTierId;
+    if (D.tierById(machineIdOrTierId) && Array.isArray(D.MACHINE_TYPES)) {
+      const type = D.MACHINE_TYPES.find((item) => item && item.tierId === machineIdOrTierId);
+      return type ? type.id : null;
+    }
+    return null;
+  }
+
+  function placeMachine(state, zoneId, floorId, r, c, machineIdOrTierId, events) {
     const floor = getFloor(state, zoneId, floorId);
     if (!floor || !floor.unlocked) return { ok: false, reason: "floorLocked" };
-    if (!E.tierUnlocked(state, tierId)) return { ok: false, reason: "tierLocked" };
+    const machineId = normalizeMachineId(machineIdOrTierId);
+    const def = machineId ? D.machineById(machineId) : null;
+    if (!def) return { ok: false, reason: "machineInvalid" };
+    if (def.kind === "zone" && !G.Zone.canPlaceMachineInZone(state, machineId, zoneId)) {
+      return { ok: false, reason: "wrongZone", machineId, requiredZoneId: def.zoneId };
+    }
+    if (!G.Zone.isMachineUnlocked(state, machineId)) return { ok: false, reason: "machineLocked", machineId };
     const slot = floor.grid.find((s) => s.r === r && s.c === c);
     if (!slot || slot.machine) return { ok: false, reason: "occupied" };
-    const cost = E.machineCost(state, tierId);
-    if (state.money < cost) return { ok: false, reason: "money", cost };
+    const cost = E.machineCostById(state, machineId);
+    if (state.money < cost) return { ok: false, reason: "money", cost, machineId };
     state.money -= cost;
-    const type = D.MACHINE_TYPES.find((m) => m.tierId === tierId);
     slot.machine = {
-      typeId: type.id,
-      tierId,
+      typeId: machineId,
+      tierId: def.tierId || "common",
       levels: { speed: 0, output: 0, ink: 0 },
       progress: 0,
       banked: 0,
     };
     state.stats.totalMachinesPlaced++;
-    return { ok: true, cost, tierId };
+    const zoneStats = G.Zone.getZoneState(state, zoneId).stats;
+    zoneStats.machinesPlaced = (zoneStats.machinesPlaced || 0) + 1;
+    G.Zone.onMachinePlaced(state, zoneId, floor, slot.machine, slot, events || null);
+    if (Array.isArray(events)) events.push({ type: "machinePlaced", zoneId, floorId, r, c, machineId, cost });
+    return { ok: true, cost, machineId, tierId: def.tierId || null };
   }
 
   function upgradeMachine(state, zoneId, floorId, r, c, upgradeId) {
     const floor = getFloor(state, zoneId, floorId);
-    if (!floor) return { ok: false };
+    if (!floor || !floor.unlocked) return { ok: false, reason: "floorLocked" };
     const slot = floor.grid.find((s) => s.r === r && s.c === c);
     if (!slot || !slot.machine) return { ok: false };
     const u = D.UPGRADES[upgradeId];
@@ -70,7 +90,7 @@
   // ---- Floor systems (conveyor / collector) ---------------------
   function buyFloorSystem(state, zoneId, floorId, systemId) {
     const floor = getFloor(state, zoneId, floorId);
-    if (!floor) return { ok: false };
+    if (!floor || !floor.unlocked) return { ok: false, reason: "floorLocked" };
     const def = D.FLOOR_SYSTEMS[systemId];
     if (!def) return { ok: false, reason: "invalid" };
     const cur = floor.systems[systemId];
@@ -89,41 +109,20 @@
     }
     state.money -= cost;
     floor.systems[systemId] = cur + 1;
+    state.stats.totalUpgradesBought = Math.max(0, Number(state.stats.totalUpgradesBought) || 0) + 1;
     return { ok: true, cost, newLevel: cur + 1 };
   }
 
   // ---- Zones / floors unlocking -------------------------------------------
-  function unlockZone(state, zoneId) {
-    const zone = getZone(state, zoneId);
-    const def = D.zoneById(zoneId);
-    if (!zone || zone.unlocked) return { ok: false };
-    if (!def.unlock) { zone.unlocked = true; return { ok: true }; }
-    if (def.unlock.type === "money") {
-      if (state.money < def.unlock.amount) return { ok: false, reason: "money", cost: def.unlock.amount };
-      state.money -= def.unlock.amount;
-      zone.unlocked = true;
-      return { ok: true };
-    }
-    if (def.unlock.type === "prestige") {
-      if (state.prestige.count < def.unlock.amount) return { ok: false, reason: "prestige" };
-      zone.unlocked = true;
-      return { ok: true };
-    }
-    return { ok: false };
+  function unlockZone(state, zoneId, events) {
+    return G.Zone.unlockZone(state, zoneId, events);
   }
 
-  function unlockFloor(state, zoneId, floorId) {
+  function unlockFloor(state, zoneId, floorId, events) {
     const floor = getFloor(state, zoneId, floorId);
     const def = D.floorById(zoneId, floorId);
     if (!floor || floor.unlocked) return { ok: false };
-    if (!def.unlock) { floor.unlocked = true; return { ok: true }; }
-    if (def.unlock.type === "money") {
-      if (state.money < def.unlock.amount) return { ok: false, reason: "money", cost: def.unlock.amount };
-      state.money -= def.unlock.amount;
-      floor.unlocked = true;
-      return { ok: true };
-    }
-    return { ok: false };
+    return G.Zone.unlockFloor(state, zoneId, floorId, events);
   }
 
   // ---- Rooms -----------------------------------------------------------------
@@ -148,54 +147,72 @@
     state.lifetimeEarned += amount;
   }
 
-  function collectMachine(state, zoneId, floorId, r, c) {
+  // Collection action contract: always returns { ok, amount, reason? }.
+  // `amount` remains present for backwards compatibility with the UI.
+  function collectMachine(state, zoneId, floorId, r, c, events) {
     const floor = getFloor(state, zoneId, floorId);
-    if (!floor) return { amount: 0 };
+    if (!floor || !floor.unlocked) return { ok: false, amount: 0, reason: "floorLocked" };
     const slot = floor.grid.find((s) => s.r === r && s.c === c);
-    if (!slot || !slot.machine || slot.machine.banked <= 0) return { amount: 0 };
+    if (!slot || !slot.machine || slot.machine.banked <= 0) return { ok: false, amount: 0, reason: "empty" };
     const amount = slot.machine.banked;
     slot.machine.banked = 0;
     grantMoney(state, amount);
     state.stats.totalClicks++;
-    return { amount };
+    const zoneStats = G.Zone.getZoneState(state, zoneId).stats;
+    zoneStats.cashCollected = (zoneStats.cashCollected || 0) + amount;
+    if (G.Zone) G.Zone.onMachineCollected(state, zoneId, floor, slot.machine, slot, amount, events || null, false);
+    if (Array.isArray(events)) events.push({ type: "machineCollected", zoneId, floorId, r, c, machineId: slot.machine.typeId, amount, automatic: false });
+    return { ok: true, amount };
   }
 
-  function collectFloor(state, zoneId, floorId) {
+  function collectFloor(state, zoneId, floorId, events) {
     const floor = getFloor(state, zoneId, floorId);
-    if (!floor) return 0;
+    if (!floor || !floor.unlocked) return 0;
     let total = 0;
     floor.grid.forEach((s) => {
-      if (s.machine && s.machine.banked > 0) { total += s.machine.banked; s.machine.banked = 0; }
+      if (s.machine && s.machine.banked > 0) {
+        const amount = s.machine.banked;
+        total += amount;
+        s.machine.banked = 0;
+        if (G.Zone) G.Zone.onMachineCollected(state, zoneId, floor, s.machine, s, amount, events || null, true);
+        if (Array.isArray(events)) events.push({ type: "machineCollected", zoneId, floorId, r: s.r, c: s.c, machineId: s.machine.typeId, amount, automatic: true });
+      }
     });
+    const zoneStats = G.Zone.getZoneState(state, zoneId).stats;
+    zoneStats.cashCollected = (zoneStats.cashCollected || 0) + total;
     grantMoney(state, total);
     return total;
   }
 
-  function collectAllUnlocked(state) {
-    let total = 0;
-    state.zones.forEach((z) => { if (z.unlocked) z.floors.forEach((f) => { if (f.unlocked) total += collectFloor(state, z.id, f.id); }); });
-    return total;
-  }
 
   // ---- Core production tick (used by live loop, called every frame) --------
   // events: array the caller can push {type,...} onto for render/audio hooks.
   function tickFloor(state, zone, floor, dt, events) {
     const outMult = E.floorOutputMult(floor);
     const hasCollector = floor.systems.collector > 0;
-    const r = rt(floor.id);
+    const r = rt(zone.id, floor.id);
 
+    G.Zone.beforeTick(state, zone, floor, dt, events);
     floor.grid.forEach((slot) => {
       const m = slot.machine;
       if (!m) return;
-      const cooldown = E.machineCooldown(m, state);
+      const baseCooldown = E.machineCooldown(m, state);
+      const cooldown = G.Zone.modifyCooldown(state, zone.id, floor, m, baseCooldown);
       m.progress += dt / cooldown;
       while (m.progress >= 1) {
         m.progress -= 1;
+        if (!G.Zone.beforeMachineCycle(state, zone, floor, m, slot, events)) continue;
         let yieldAmt = E.machineBaseYield(m, outMult, state);
         let isCrit = Math.random() < E.machineCritChance(m, state);
         if (isCrit) yieldAmt *= E.machineCritMult(m);
+        const zoneMultiplier = G.Zone.getProductionMultiplier(state, zone.id, floor, m, slot);
+        yieldAmt *= zoneMultiplier;
+        const result = { amount: yieldAmt, crit: isCrit };
+        zone.stats.totalCycles = (zone.stats.totalCycles || 0) + 1;
+        zone.stats.cashGenerated = (zone.stats.cashGenerated || 0) + yieldAmt;
         m.banked += yieldAmt;
         if (events) events.push({ type: "cycle", zoneId: zone.id, floorId: floor.id, r: slot.r, c: slot.c, amount: yieldAmt, crit: isCrit });
+        G.Zone.afterMachineCycle(state, zone, floor, m, slot, result, events);
       }
     });
 
@@ -204,7 +221,7 @@
       r.collectorTimer += dt;
       if (tickSec && r.collectorTimer >= tickSec) {
         r.collectorTimer = 0;
-        const total = collectFloor(state, zone.id, floor.id);
+        const total = collectFloor(state, zone.id, floor.id, events);
         if (total > 0 && events) events.push({ type: "autocollect", zoneId: zone.id, floorId: floor.id, amount: total });
       }
     }
@@ -222,15 +239,27 @@
     }
   }
 
+
   function tick(state, dt) {
     const events = [];
     state.zones.forEach((zone) => {
       if (!zone.unlocked) return;
+      G.Zone.beforeZoneTick(state, zone, dt, events);
+      let zoneHadUnlockedFloor = false;
       zone.floors.forEach((floor) => {
         if (!floor.unlocked) return;
+        zoneHadUnlockedFloor = true;
         tickFloor(state, zone, floor, dt, events);
+        G.Zone.afterTick(state, zone, floor, dt, events);
       });
+      if (zoneHadUnlockedFloor) zone.stats.playTimeSeconds = (zone.stats.playTimeSeconds || 0) + dt;
+      G.Zone.afterZoneTick(state, zone, dt, events);
     });
+    // Resolve discoveries after gameplay state changes but before dispatch so
+    // mechanic-emitted discovery/events can participate in the same bounded
+    // event chain during this tick.
+    G.Zone.checkAllSecrets(state, events);
+    G.Zone.dispatchEvents(state, events);
     // R&D research accrual
     const rndRate = E.rndRatePerSec(state);
     if (rndRate > 0) state.research += rndRate * dt;
@@ -240,101 +269,33 @@
       grantMoney(state, state.money * (interestPerHour / 3600) * dt);
     }
     state.stats.playTimeSeconds += dt;
+
+    // Cumulative online-time rewards. The remainder is stored in onlineSeconds,
+    // so 15 min today + 15 min tomorrow still crosses the same 30 min milestone.
+    const interval = D.SKILL_POINT_INTERVAL_SECONDS;
+    const before = Math.floor((state.skills.onlineSeconds || 0) / interval);
+    state.skills.onlineSeconds = Math.max(0, (state.skills.onlineSeconds || 0) + Math.max(0, dt));
+    const after = Math.floor(state.skills.onlineSeconds / interval);
+    const gainedSkillPoints = after - before;
+    if (gainedSkillPoints > 0) {
+      state.skills.points += gainedSkillPoints;
+      events.push({ type: "skillPoint", amount: gainedSkillPoints });
+    }
+
     return events;
-  }
-
-  // ---- Offline simulation ----------------------------------------------------
-  // Deterministic closed-form estimate (not stepped) for performance & to
-  // avoid needing to replay potentially many real-world hours tick by tick.
-  function computeFloorMps(state, zone, floor) {
-    const outMult = E.floorOutputMult(floor);
-    let mps = 0;
-    floor.grid.forEach((slot) => {
-      const m = slot.machine;
-      if (!m) return;
-      const cooldown = E.machineCooldown(m, state);
-      const avgYield = E.machineBaseYield(m, outMult, state) * (1 + E.machineCritChance(m, state) * (E.machineCritMult(m) - 1));
-      mps += avgYield / cooldown;
-    });
-    // Offline mode is an abstract idle estimate: collectors improve cash conversion,
-    // while manual floors still retain a reduced passive efficiency.
-    const efficiency = floor.systems.collector > 0 ? 0.75 : 0.35;
-    return mps * efficiency;
-  }
-
-  function simulateOfflineEarnings(state, elapsedSeconds) {
-    if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return { amount: 0, production: 0, cappedSeconds: 0, capHours: E.vaultOfflineCapHours(state), researchGained: 0, interestGained: 0, wasCapped: false };
-    const capHours = E.vaultOfflineCapHours(state);
-    const cappedSeconds = Math.min(elapsedSeconds, capHours * 3600);
-
-    let totalMps = 0;
-    state.zones.forEach((zone) => {
-      if (!zone.unlocked) return;
-      zone.floors.forEach((floor) => {
-        if (!floor.unlocked) return;
-        totalMps += computeFloorMps(state, zone, floor);
-      });
-    });
-
-    const production = totalMps * cappedSeconds;
-    const interestPerHour = E.vaultInterestPerHour(state);
-    const ratePerSecond = interestPerHour / 3600;
-    const interestGained = interestPerHour > 0
-      ? (state.money + totalMps / ratePerSecond) * Math.exp(ratePerSecond * cappedSeconds) - state.money - totalMps / ratePerSecond
-      : 0;
-    const researchGained = E.rndRatePerSec(state) * cappedSeconds;
-
-    return {
-      amount: production + interestGained,
-      production,
-      interestGained,
-      researchGained,
-      cappedSeconds,
-      capHours,
-      wasCapped: elapsedSeconds > cappedSeconds,
-    };
-  }
-
-  function applyOfflineEarnings(state, result) {
-    if (result.amount > 0) grantMoney(state, result.amount);
-    if (result.researchGained > 0) state.research += result.researchGained;
-  }
-
-  // ---- Prestige (rebirth) -----------------------------------------------------
-  function doPrestige(state) {
-    if (!E.prestigeUnlocked(state)) return { ok: false };
-    const gain = E.prestigeGain(state);
-    const techKeep = state.prestige.tech;
-    const eff = E.techEffects(state);
-
-    const fresh = G.State.defaultState();
-    fresh.settings = state.settings;
-    fresh.prestige.count = state.prestige.count + 1;
-    fresh.prestige.perkPoints = state.prestige.perkPoints + gain;
-    fresh.prestige.tech = techKeep;
-    fresh.money = 50 * (1 + eff.startingMoneyMult);
-    fresh.maxMoney = fresh.money;
-    fresh.lifetimeEarned = state.lifetimeEarned;
-    fresh.research = state.research;
-    fresh.selectedTierId = "common";
-    fresh.stats = state.stats; // keep lifetime stats
-
-    Object.keys(floorRuntime).forEach((k) => delete floorRuntime[k]);
-
-    return { ok: true, gain, newState: fresh };
   }
 
   // ---- Tech tree purchase ---------------------------------------------------
   function buyTech(state, techId) {
     const tech = D.techById(techId);
     if (!tech) return { ok: false };
-    if (state.prestige.tech[techId]) return { ok: false, reason: "owned" };
+    if (state.skills.tech[techId]) return { ok: false, reason: "owned" };
     if (!E.techRequirementsMet(state, tech)) return { ok: false, reason: "requires" };
     const purchaseReason = E.techPurchaseReason(state, tech);
     if (purchaseReason) return { ok: false, reason: purchaseReason };
-    state.prestige.perkPoints -= tech.cost;
+    state.skills.points -= tech.cost;
     state.research -= tech.researchCost;
-    state.prestige.tech[techId] = true;
+    state.skills.tech[techId] = true;
     return { ok: true };
   }
 
@@ -342,10 +303,9 @@
     getZone, getFloor, currentZone, currentFloor,
     canPlaceMachine, placeMachine, upgradeMachine,
     buyFloorSystem, unlockZone, unlockFloor, upgradeRoom,
-    collectMachine, collectFloor, collectAllUnlocked, grantMoney,
+    collectMachine, collectFloor, grantMoney,
     tick, tickFloor,
-    simulateOfflineEarnings, applyOfflineEarnings,
-    doPrestige, buyTech,
+    buyTech,
     resetRuntime() { Object.keys(floorRuntime).forEach((k) => delete floorRuntime[k]); },
   };
 })(window.Game = window.Game || {});

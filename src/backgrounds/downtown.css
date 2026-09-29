@@ -1,0 +1,16 @@
+
+/* Zone background stylesheet: Downtown Warehouse. Purely visual. */
+#zone-background.zone-background--downtown::before {
+  content: "";
+  position: absolute;
+  inset: 7% 8% 10%;
+  border: 1px solid rgba(255,255,255,.025);
+  border-radius: 22px;
+  background:
+    linear-gradient(90deg, transparent 49.8%, rgba(255,255,255,.025) 50%, transparent 50.2%),
+    linear-gradient(0deg, transparent 49.8%, rgba(255,255,255,.02) 50%, transparent 50.2%);
+  background-size: 86px 86px;
+  mask-image: linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);
+  opacity: .55;
+  pointer-events: none;
+}

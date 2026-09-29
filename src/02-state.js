@@ -1,13 +1,13 @@
 /* ============================================================
    02-state.js — Single source of truth for all game state.
-   Every system (economy, factory, prestige, save, ui) reads and
+   Every system (economy, factory, save, ui) reads and
    mutates THIS object. No system keeps its own duplicated copy.
    ============================================================ */
 (function (G) {
   "use strict";
   const D = G.DATA;
 
-  const SAVE_VERSION = 1;
+  const SAVE_VERSION = 6;
 
   function makeEmptyGrid() {
     const slots = [];
@@ -15,7 +15,7 @@
       for (let c = 0; c < D.GRID_COLS; c++) {
         slots.push({
           r, c,
-          machine: null, // { typeId, tierId, levels: {speed,output,ink,auto}, progress: 0..1, lastCollectAmount }
+          machine: null, // { typeId, tierId, levels: {speed,output,ink}, progress: 0..1, banked }
         });
       }
     }
@@ -34,11 +34,56 @@
     };
   }
 
+  function cloneJson(value) {
+    try { return JSON.parse(JSON.stringify(value)); } catch (_e) { return {}; }
+  }
+
+  function isPlainObject(value) { return !!value && typeof value === "object" && !Array.isArray(value); }
+
+  function mergeDeclaredObject(target, source, definition) {
+    if (!isPlainObject(target) || !isPlainObject(definition)) return;
+    if (!isPlainObject(source)) return;
+    Object.keys(definition).forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(source, key)) return;
+      const declared = definition[key];
+      const loaded = source[key];
+      if (isPlainObject(declared) && isPlainObject(loaded)) {
+        mergeDeclaredObject(target[key], loaded, declared);
+      } else if (Array.isArray(declared) && Array.isArray(loaded)) {
+        target[key] = cloneJson(loaded);
+      } else if (loaded === null || typeof loaded === "string" || typeof loaded === "boolean" || (typeof loaded === "number" && isFinite(loaded))) {
+        target[key] = loaded;
+      }
+    });
+  }
+
   function makeZone(zoneDef) {
+    const mechanicState = {};
+    (zoneDef.mechanics || []).forEach((mechanic) => {
+      if (mechanic && typeof mechanic.id === "string") {
+        mechanicState[mechanic.id] = mechanic.initialState && typeof mechanic.initialState === "object"
+          ? cloneJson(mechanic.initialState)
+          : {};
+      }
+    });
     return {
       id: zoneDef.id,
       unlocked: !zoneDef.unlock,
       floors: zoneDef.floors.map(makeFloor),
+      mechanicState,
+      mechanicDiscoveries: [],
+      variables: cloneJson(zoneDef.variables || {}),
+      upgrades: {},
+      purchases: {},
+      secrets: [],
+      unlockedMachineIds: [],
+      stats: {
+        playTimeSeconds: 0,
+        totalCycles: 0,
+        cashGenerated: 0,
+        machinesPlaced: 0,
+        cashCollected: 0,
+      },
     };
   }
 
@@ -47,15 +92,13 @@
       saveVersion: SAVE_VERSION,
       createdAt: Date.now(),
       lastSaveTime: Date.now(),
-      lastActiveTime: Date.now(),
 
       money: 50,
-      totalEarned: 0,       // this prestige run (resets on rebirth)
+      totalEarned: 0,       // cumulative cash granted in this save
       lifetimeEarned: 0,    // total cash ever granted; used for lifetime unlocks/stats only
       maxMoney: 50,         // highest cash balance ever reached in the current run
 
       research: 0,          // research points from R&D room; spent on Tech Tree purchases
-      offlinePending: null, // persisted offline reward waiting for player claim
 
       currentZoneId: D.ZONES[0].id,
       currentFloorId: D.ZONES[0].floors[0].id,
@@ -67,9 +110,9 @@
         power: { level: 0 },
       },
 
-      prestige: {
-        count: 0,
-        perkPoints: 0,
+      skills: {
+        points: 0,
+        onlineSeconds: 0,
         tech: {}, // techId -> true
       },
 
@@ -84,6 +127,7 @@
       camera: { x: 0, y: 0, zoom: 1 },
 
       selectedTierId: "common",
+      selectedMachineId: "printer_common",
 
       stats: {
         totalClicks: 0,
@@ -109,40 +153,33 @@
       if (typeof loaded.maxMoney === "number" && isFinite(loaded.maxMoney)) out.maxMoney = Math.max(0, loaded.maxMoney);
       out.maxMoney = Math.max(out.maxMoney, out.money);
       if (typeof loaded.research === "number" && isFinite(loaded.research)) out.research = Math.max(0, loaded.research);
-      if (loaded.offlinePending && typeof loaded.offlinePending === "object") {
-        const p = loaded.offlinePending;
-        const finite = (v) => typeof v === "number" && isFinite(v);
-        if (finite(p.amount) && p.amount >= 0 && finite(p.production) && p.production >= 0 && finite(p.interestGained) && p.interestGained >= 0 && finite(p.researchGained) && p.researchGained >= 0 && finite(p.cappedSeconds) && p.cappedSeconds >= 0 && finite(p.capHours) && p.capHours >= 0 && finite(p.elapsedSeconds) && p.elapsedSeconds >= 0) {
-          out.offlinePending = {
-            amount: p.amount,
-            production: p.production,
-            interestGained: p.interestGained,
-            researchGained: p.researchGained,
-            cappedSeconds: p.cappedSeconds,
-            capHours: p.capHours,
-            wasCapped: !!p.wasCapped,
-            elapsedSeconds: p.elapsedSeconds,
-          };
-        }
-      }
       if (typeof loaded.lastSaveTime === "number" && isFinite(loaded.lastSaveTime) && loaded.lastSaveTime >= 0) out.lastSaveTime = loaded.lastSaveTime;
-      if (typeof loaded.lastActiveTime === "number" && isFinite(loaded.lastActiveTime) && loaded.lastActiveTime >= 0) out.lastActiveTime = loaded.lastActiveTime;
       if (typeof loaded.createdAt === "number" && isFinite(loaded.createdAt) && loaded.createdAt >= 0) out.createdAt = loaded.createdAt;
 
       if (loaded.settings && typeof loaded.settings === "object") {
-        if (loaded.settings.lang === "en" || loaded.settings.lang === "vi") out.settings.lang = loaded.settings.lang;
+        if (loaded.settings.lang === "en" || loaded.settings.lang === "vi" || loaded.settings.lang === "id" || loaded.settings.lang === "es") out.settings.lang = loaded.settings.lang;
         if (typeof loaded.settings.music === "boolean") out.settings.music = loaded.settings.music;
         if (typeof loaded.settings.sfx === "boolean") out.settings.sfx = loaded.settings.sfx;
-        if (typeof loaded.settings.musicVolume === "number") out.settings.musicVolume = clamp01(loaded.settings.musicVolume);
-        if (typeof loaded.settings.sfxVolume === "number") out.settings.sfxVolume = clamp01(loaded.settings.sfxVolume);
+        if (typeof loaded.settings.musicVolume === "number" && isFinite(loaded.settings.musicVolume)) out.settings.musicVolume = clamp01(loaded.settings.musicVolume);
+        if (typeof loaded.settings.sfxVolume === "number" && isFinite(loaded.settings.sfxVolume)) out.settings.sfxVolume = clamp01(loaded.settings.sfxVolume);
       }
 
-      if (loaded.prestige && typeof loaded.prestige === "object") {
-        if (typeof loaded.prestige.count === "number") out.prestige.count = Math.max(0, Math.floor(loaded.prestige.count));
-        if (typeof loaded.prestige.perkPoints === "number") out.prestige.perkPoints = Math.max(0, Math.floor(loaded.prestige.perkPoints));
-        if (loaded.prestige.tech && typeof loaded.prestige.tech === "object") {
+      const oldPrestige = loaded.prestige && typeof loaded.prestige === "object" ? loaded.prestige : null;
+      if (loaded.skills && typeof loaded.skills === "object") {
+        if (typeof loaded.skills.points === "number" && isFinite(loaded.skills.points)) out.skills.points = Math.max(0, Math.floor(loaded.skills.points));
+        if (typeof loaded.skills.onlineSeconds === "number" && isFinite(loaded.skills.onlineSeconds)) out.skills.onlineSeconds = Math.max(0, loaded.skills.onlineSeconds);
+        if (loaded.skills.tech && typeof loaded.skills.tech === "object") {
           D.TECH_TREE.forEach((t) => {
-            if (loaded.prestige.tech[t.id] && t.requires.every((req) => !!out.prestige.tech[req])) out.prestige.tech[t.id] = true;
+            if (loaded.skills.tech[t.id] && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
+          });
+        }
+      } else if (oldPrestige) {
+        // One-time migration: keep old earned points/upgrades, discard only the
+        // old Rebirth counter and reset behavior. New points come from online time.
+        if (typeof oldPrestige.perkPoints === "number" && isFinite(oldPrestige.perkPoints)) out.skills.points = Math.max(0, Math.floor(oldPrestige.perkPoints));
+        if (oldPrestige.tech && typeof oldPrestige.tech === "object") {
+          D.TECH_TREE.forEach((t) => {
+            if (oldPrestige.tech[t.id] && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
           });
         }
       }
@@ -160,11 +197,14 @@
       if (typeof loaded.selectedTierId === "string" && D.tierById(loaded.selectedTierId)) {
         out.selectedTierId = loaded.selectedTierId;
       }
+      if (typeof loaded.selectedMachineId === "string" && D.machineById(loaded.selectedMachineId)) {
+        out.selectedMachineId = loaded.selectedMachineId;
+      }
 
       if (loaded.camera && typeof loaded.camera === "object") {
-        if (typeof loaded.camera.x === "number") out.camera.x = loaded.camera.x;
-        if (typeof loaded.camera.y === "number") out.camera.y = loaded.camera.y;
-        if (typeof loaded.camera.zoom === "number" && loaded.camera.zoom > 0) out.camera.zoom = clamp(loaded.camera.zoom, 0.5, 2.5);
+        if (typeof loaded.camera.x === "number" && isFinite(loaded.camera.x)) out.camera.x = loaded.camera.x;
+        if (typeof loaded.camera.y === "number" && isFinite(loaded.camera.y)) out.camera.y = loaded.camera.y;
+        if (typeof loaded.camera.zoom === "number" && isFinite(loaded.camera.zoom) && loaded.camera.zoom > 0) out.camera.zoom = clamp(loaded.camera.zoom, 0.5, 2.5);
       }
 
       if (typeof loaded.currentZoneId === "string" && D.zoneById(loaded.currentZoneId)) out.currentZoneId = loaded.currentZoneId;
@@ -175,6 +215,50 @@
           const lz = loaded.zones.find((z) => z && z.id === zone.id);
           if (!lz) return;
           if (typeof lz.unlocked === "boolean") zone.unlocked = lz.unlocked || zone.unlocked;
+          const zoneDef = D.zoneById(zone.id);
+          if (Array.isArray(lz.mechanicDiscoveries)) {
+            const validMechanics = new Set((zoneDef.mechanics || []).filter((x) => x && x.visibility && x.visibility.hidden === true).map((x) => x.id));
+            zone.mechanicDiscoveries = lz.mechanicDiscoveries.filter((id) => typeof id === "string" && validMechanics.has(id));
+          }
+          if (Array.isArray(lz.secrets)) {
+            const validSecrets = new Set((zoneDef.secrets || []).map((x) => x.id));
+            zone.secrets = lz.secrets.filter((id) => typeof id === "string" && validSecrets.has(id));
+          }
+          if (lz.variables && typeof lz.variables === "object" && !Array.isArray(lz.variables)) {
+            mergeDeclaredObject(zone.variables, lz.variables, zoneDef.variables || {});
+          }
+          if (lz.upgrades && typeof lz.upgrades === "object" && !Array.isArray(lz.upgrades)) {
+            const validUpgradeDefs = new Map((zoneDef.upgrades || []).map((x) => [x.id, x]));
+            Object.keys(lz.upgrades).forEach((id) => {
+              const def = validUpgradeDefs.get(id);
+              const value = lz.upgrades[id];
+              if (!def || !Number.isFinite(value)) return;
+              const maxLevel = Math.max(1, Math.floor(Number(def.maxLevel) || 1));
+              zone.upgrades[id] = Math.max(0, Math.min(maxLevel, Math.floor(value)));
+            });
+          }
+          if (lz.purchases && typeof lz.purchases === "object" && !Array.isArray(lz.purchases)) {
+            const validPurchaseIds = new Set((zoneDef.purchases || []).map((x) => x.id));
+            Object.keys(lz.purchases).forEach((id) => {
+              if (validPurchaseIds.has(id) && lz.purchases[id] === true) zone.purchases[id] = true;
+            });
+          }
+          if (Array.isArray(lz.unlockedMachineIds)) {
+            const validMachineIds = new Set((zoneDef.machines || []).map((x) => x.id));
+            zone.unlockedMachineIds = lz.unlockedMachineIds.filter((id) => typeof id === "string" && validMachineIds.has(id));
+          }
+          if (lz.mechanicState && typeof lz.mechanicState === "object") {
+            (zoneDef.mechanics || []).forEach((mechanicDef) => {
+              const value = lz.mechanicState[mechanicDef.id];
+              if (value && typeof value === "object") zone.mechanicState[mechanicDef.id] = cloneJson(value);
+            });
+          }
+          if (lz.stats && typeof lz.stats === "object") {
+            Object.keys(lz.stats).forEach((key) => {
+              const value = lz.stats[key];
+              if (typeof value === "number" && isFinite(value) && value >= 0) zone.stats[key] = value;
+            });
+          }
           if (Array.isArray(lz.floors)) {
             zone.floors.forEach((floor) => {
               const lf = lz.floors.find((f) => f && f.id === floor.id);
@@ -184,7 +268,8 @@
                 ["conveyor", "collector"].forEach((k) => {
                   const v = lf.systems[k];
                   if (typeof v === "number" && isFinite(v)) {
-                    floor.systems[k] = Math.max(0, Math.floor(v));
+                    const maxLevel = Number(D.FLOOR_SYSTEMS[k]?.maxLevel) || 0;
+                    floor.systems[k] = Math.max(0, Math.min(maxLevel, Math.floor(v)));
                   }
                 });
               }
@@ -193,12 +278,23 @@
                   const ls = lf.grid.find((s) => s && s.r === slot.r && s.c === slot.c);
                   if (!ls || !ls.machine) return;
                   const m = ls.machine;
-                  if (typeof m.typeId === "string" && D.machineTypeById(m.typeId)) {
+                  // Legacy saves used tier ids directly (for example `common`)
+                  // or only stored `tierId`. Resolve those ids back to the current
+                  // global machine definition so upgrades/progress/banked cash are
+                  // not silently deleted during the new schema sanitization.
+                  const directDef = typeof m.typeId === "string" ? D.machineById(m.typeId) : null;
+                  const legacyTier = !directDef && typeof m.typeId === "string" ? D.tierById(m.typeId) : null;
+                  const legacyType = !directDef && typeof m.tierId === "string"
+                    ? D.MACHINE_TYPES.find((type) => type.tierId === m.tierId)
+                    : null;
+                  const def = directDef
+                    || (legacyTier ? D.machineById("printer_" + legacyTier.id) : null)
+                    || (legacyType ? D.machineById(legacyType.id) : null);
+                  if (def) {
                     slot.machine = {
-                      typeId: m.typeId,
-                      // tierId is derived from the validated machine type so a corrupt/mismatched
-                      // tier cannot enter the runtime state.
-                      tierId: D.machineTypeById(m.typeId).tierId,
+                      typeId: def.id,
+                      // tierId remains as a compatibility/visual fallback for older core code.
+                      tierId: def.tierId || "common",
                       levels: {
                         speed: safeLevel(m.levels && m.levels.speed, D.UPGRADES.speed.maxLevel),
                         output: safeLevel(m.levels && m.levels.output, D.UPGRADES.output.maxLevel),
@@ -224,6 +320,11 @@
         const fallback = out.zones.find((z) => z.unlocked);
         out.currentZoneId = fallback ? fallback.id : D.ZONES[0].id;
       }
+      // Selection is global: a machine can be inspected/selected without
+      // entering its home Zone. Placement itself is validated by Zone Core.
+      if (!D.tierById(out.selectedTierId)) out.selectedTierId = "common";
+      if (!D.machineById(out.selectedMachineId)) out.selectedMachineId = "printer_" + out.selectedTierId;
+
       const activeZoneState = out.zones.find((z) => z.id === out.currentZoneId);
       const requestedFloor = typeof loaded.currentFloorId === "string" ? loaded.currentFloorId : null;
       if (activeZoneState) {
