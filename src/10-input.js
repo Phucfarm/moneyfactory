@@ -5,7 +5,7 @@
   "use strict";
 
   const PAN_SPEED = 620; // world units/sec at zoom 1
-  const ZOOM_MIN = 0.55, ZOOM_MAX = 2.3;
+  const ZOOM_MIN = 0.55, ZOOM_MAX = 2.8;
 
   let canvas;
   let camera = { x: 0, y: 0, zoom: 1 };

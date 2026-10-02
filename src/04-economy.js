@@ -6,9 +6,22 @@
 (function (G) {
   "use strict";
   const D = G.DATA;
+  const techEffectCache = new WeakMap();
+  const machineDefinitionCache = new WeakMap();
 
   // ---- Tech tree effect aggregation -----------------------------------
+  // Tech purchases are infrequent compared with the game loop. Cache the aggregate
+  // per state and invalidate only when a tech is actually purchased.
+  const EMPTY_TECH_EFFECTS = Object.freeze({
+    globalOutputMult: 0, globalSpeedMult: 0, critChanceAdd: 0, powerDiscount: 0,
+    collectorSpeedMult: 0, rndRateMult: 0, upgradeDiscount: 0, vaultInterestAdd: 0,
+    machineCostDiscount: 0,
+  });
+
   function techEffects(state) {
+    if (!state || !state.skills || !state.skills.tech) return EMPTY_TECH_EFFECTS;
+    const cached = techEffectCache.get(state);
+    if (cached) return cached;
     const eff = {
       globalOutputMult: 0,
       globalSpeedMult: 0,
@@ -27,8 +40,14 @@
       const e = t.effect;
       if (eff[e.type] !== undefined) eff[e.type] += e.value;
     });
+    techEffectCache.set(state, eff);
     return eff;
   }
+
+  function invalidateTechEffects(state) {
+    if (state && typeof state === "object") techEffectCache.delete(state);
+  }
+
 
   // ---- Machine placement cost: scales with how many of that tier are
   // already placed anywhere in the factory (global count per tier). ----
@@ -83,13 +102,16 @@
   }
 
   function machineDefinition(machine) {
-    const direct = D.machineById(machine && machine.typeId);
-    if (direct) return direct;
-    const legacyTierId = machine && machine.tierId;
+    if (!machine || typeof machine !== "object") return null;
+    if (machineDefinitionCache.has(machine)) return machineDefinitionCache.get(machine);
+    const direct = D.machineById(machine.typeId);
+    if (direct) { machineDefinitionCache.set(machine, direct); return direct; }
+    const legacyTierId = machine.tierId;
     if (legacyTierId) {
       const tierMachine = D.machineById("printer_" + legacyTierId);
-      if (tierMachine) return tierMachine;
+      if (tierMachine) { machineDefinitionCache.set(machine, tierMachine); return tierMachine; }
     }
+    machineDefinitionCache.set(machine, null);
     return null;
   }
 
@@ -249,7 +271,7 @@
   }
 
   G.Econ = {
-    techEffects, tierPlacedCount, machineCountById, machineCostById, machineCost, tierUnlocked,
+    techEffects, invalidateTechEffects, tierPlacedCount, machineCountById, machineCostById, machineCost, tierUnlocked,
     upgradeCost, machineDefinition, machineCooldown, machineBaseYield, machineCritChance, machineCritMult,
     floorOutputMult, floorSystemCost, collectorTickSeconds,
     roomCost, rndRatePerSec, vaultInterestPerHour,

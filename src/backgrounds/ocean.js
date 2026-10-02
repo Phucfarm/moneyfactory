@@ -23,6 +23,8 @@
       this.rootLayers = [];
       this.pointer = { x: 0.5, y: 0.24 };
       this.lastVisualUpdate = -Infinity;
+      this.lastActivity = null;
+      this.lastPointerKey = "";
       this.build();
       this.updateActivity(ctx);
     }
@@ -129,7 +131,10 @@
       const zone = stateView && stateView.zone ? stateView.zone : null;
       const capacity = Math.max(1, finite(zone && zone.gridCapacity, 24));
       const machines = clamp(finite(zone && zone.occupiedMachineCount, 0) / capacity, 0, 1);
-      setVar(this.element, "--ocean-activity", machines.toFixed(3));
+      const value = machines.toFixed(3);
+      if (value === this.lastActivity) return;
+      this.lastActivity = value;
+      setVar(this.element, "--ocean-activity", value);
     }
 
     update(ctx) {
@@ -140,8 +145,13 @@
       this.lastVisualUpdate = now;
       const px = this.pointer.x * 100;
       const py = this.pointer.y * 100;
-      setVar(this.element, "--ocean-pointer-x", px.toFixed(2) + "%");
-      setVar(this.element, "--ocean-pointer-y", py.toFixed(2) + "%");
+      const pxText = px.toFixed(2);
+      const pyText = py.toFixed(2);
+      const pointerKey = pxText + ":" + pyText;
+      if (pointerKey === this.lastPointerKey) return;
+      this.lastPointerKey = pointerKey;
+      setVar(this.element, "--ocean-pointer-x", pxText + "%");
+      setVar(this.element, "--ocean-pointer-y", pyText + "%");
       const tilt = ((px - 50) * 0.018).toFixed(3);
       this.rootLayers.forEach((layer, index) => {
         if (!layer || index === 5) return;
@@ -154,8 +164,11 @@
       if (!ctx) return;
       const width = Math.max(1, window.innerWidth || 1);
       const height = Math.max(1, window.innerHeight || 1);
-      this.pointer.x = clamp(finite(ctx.x, width * 0.5) / width, 0, 1);
-      this.pointer.y = clamp(finite(ctx.y, height * 0.24) / height, 0, 1);
+      const nextX = clamp(finite(ctx.x, width * 0.5) / width, 0, 1);
+      const nextY = clamp(finite(ctx.y, height * 0.24) / height, 0, 1);
+      if (nextX === this.pointer.x && nextY === this.pointer.y) return;
+      this.pointer.x = nextX;
+      this.pointer.y = nextY;
     }
   }
 

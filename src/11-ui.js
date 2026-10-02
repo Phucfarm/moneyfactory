@@ -15,6 +15,7 @@
   let onAfterAction = () => {};
   let onStateImported = () => {};
   let machineSelectorCollapsed = false;
+  let hardResetReturnPanel = null;
 
   function $(id) { return document.getElementById(id); }
   function money(n) { return "$" + E.formatMoney(n); }
@@ -89,6 +90,8 @@
 
 
   const oceanFishDecorationNodes = new Map();
+  let cachedOceanFishMechanicDef = null;
+  let cachedOceanFishValidIds = null;
 
   function fishDecorationMarkup() {
     return `<span class="fish-shadow"></span><span class="fish-art"><span class="fish-tail"></span><span class="fish-fin fish-fin--top"></span><span class="fish-fin fish-fin--bottom"></span><span class="fish-body"><span class="fish-gill"></span><span class="fish-eye"><i></i></span><span class="fish-mouth"></span><span class="fish-mark fish-mark--1"></span><span class="fish-mark fish-mark--2"></span><span class="fish-mark fish-mark--3"></span><span class="fish-highlight"></span></span><span class="fish-splash fish-splash--1"></span><span class="fish-splash fish-splash--2"></span><span class="fish-splash fish-splash--3"></span><span class="fish-splash fish-splash--4"></span><span class="fish-splash fish-splash--5"></span><span class="fish-wet-shine"></span></span>`;
@@ -98,10 +101,18 @@
     const layer = els.mechanicDecorationLayer;
     if (!layer || !state || !G.Zone || !G.Render) return;
     const decorations = (mechanicUi && mechanicUi.machineDecorations) || [];
+    if (!decorations.length && oceanFishDecorationNodes.size === 0) return;
+    if (!cachedOceanFishMechanicDef) cachedOceanFishMechanicDef = oceanFishMechanicDef();
+    if (!cachedOceanFishValidIds) {
+      cachedOceanFishValidIds = new Set(cachedOceanFishMechanicDef && cachedOceanFishMechanicDef.config && Array.isArray(cachedOceanFishMechanicDef.config.species)
+        ? cachedOceanFishMechanicDef.config.species.map((fish) => fish && fish.id).filter(Boolean) : []);
+    }
+    const validFishIds = cachedOceanFishValidIds;
     const activeKeys = new Set();
+    const currentZone = F.getZone(state, state.currentZoneId);
+    const currentFloor = currentZone && currentZone.floors ? currentZone.floors.find((f) => f.id === state.currentFloorId) : null;
+    const zoom = Math.max(0.58, Math.min(1.08, Number(state.camera && state.camera.zoom) || 1));
     decorations.forEach((item) => {
-      const fishDef = oceanFishMechanicDef();
-      const validFishIds = new Set(fishDef && fishDef.config && Array.isArray(fishDef.config.species) ? fishDef.config.species.map((fish) => fish && fish.id).filter(Boolean) : []);
       if (!item || item.visual !== "fish" || !validFishIds.has(item.variant)) return;
       const key = [item.floorId, item.r, item.c, item.decorationId].join(":");
       activeKeys.add(key);
@@ -114,21 +125,36 @@
         layer.appendChild(node);
         oceanFishDecorationNodes.set(key, node);
       }
-      node.className = "mechanic-machine-decoration stranded-fish-decoration fish--" + item.variant + (item.state === "auto-catching" ? " is-auto-catching" : " is-flopping");
-      node.style.setProperty("--fish-seed", String(Number.isFinite(Number(item.seed)) ? Number(item.seed) : 0.5));
-      const currentZone = F.getZone(state, state.currentZoneId);
-      const currentFloor = currentZone && currentZone.floors ? currentZone.floors.find((f) => f.id === state.currentFloorId) : null;
-      if (!currentFloor || item.floorId !== currentFloor.id) { node.style.display = "none"; return; }
+      const nextClass = "mechanic-machine-decoration stranded-fish-decoration fish--" + item.variant + (item.state === "auto-catching" ? " is-auto-catching" : " is-flopping");
+      if (node.className !== nextClass) node.className = nextClass;
+      const seed = String(Number.isFinite(Number(item.seed)) ? Number(item.seed) : 0.5);
+      if (node.dataset.fishSeed !== seed) {
+        node.dataset.fishSeed = seed;
+        node.style.setProperty("--fish-seed", seed);
+      }
+      if (!currentFloor || item.floorId !== currentFloor.id) {
+        if (node.style.display !== "none") node.style.display = "none";
+        return;
+      }
       const world = G.Render.slotWorldPos(item.r, item.c);
       const screen = G.Render.worldToScreen(world.x, world.y - 28);
-      const zoom = Math.max(0.58, Math.min(1.08, Number(state.camera && state.camera.zoom) || 1));
+      const left = screen.x + "px";
+      const top = screen.y + "px";
+      if (node.style.left !== left) node.style.left = left;
+      if (node.style.top !== top) node.style.top = top;
+      if (node.style.display !== "block") node.style.display = "block";
+      const zoomValue = String(zoom);
+      if (node.dataset.fishZoom !== zoomValue) {
+        node.dataset.fishZoom = zoomValue;
+        node.style.setProperty("--fish-zoom", zoomValue);
+      }
       const remaining = Number.isFinite(Number(item.remaining)) ? Number(item.remaining) : 0;
       const duration = Math.max(0.1, Number(item.duration) || 1);
-      node.style.display = "block";
-      node.style.left = screen.x + "px";
-      node.style.top = screen.y + "px";
-      node.style.setProperty("--fish-zoom", String(zoom));
-      node.style.setProperty("--fish-life", String(Math.max(0, Math.min(1, remaining / duration))));
+      const life = String(Math.max(0, Math.min(1, remaining / duration)));
+      if (node.dataset.fishLife !== life) {
+        node.dataset.fishLife = life;
+        node.style.setProperty("--fish-life", life);
+      }
     });
     oceanFishDecorationNodes.forEach((node, key) => {
       if (!activeKeys.has(key)) { node.remove(); oceanFishDecorationNodes.delete(key); }
@@ -348,8 +374,10 @@
     const totalMachines = groups.reduce((sum, group) => sum + group.defs.length, 0);
     const selectedDef = state.selectedMachineId ? D.machineById(state.selectedMachineId) : null;
     const selectedName = selectedDef ? G.i18n.t(selectedDef.nameKey) : G.i18n.t("zone.coreMachines");
+    const selectedCost = selectedDef ? E.machineCostById(state, selectedDef.id) : null;
+    const selectedCostText = selectedCost != null && Number.isFinite(selectedCost) ? money(selectedCost) : "";
     host.innerHTML = `<div class="machine-selector-head">
-      <div class="machine-selector-title"><span class="machine-selector-icon">▦</span><span><b>${escapeHtml(G.i18n.t("zone.machines"))}</b><small>${totalMachines} · ${escapeHtml(selectedName)}</small></span></div>
+      <div class="machine-selector-title"><span class="machine-selector-icon">▦</span><span><b>${escapeHtml(G.i18n.t("zone.machines"))}</b><small>${totalMachines} · ${escapeHtml(selectedName)}${selectedCostText ? " · " + escapeHtml(selectedCostText) : ""}</small></span></div>
       <button type="button" class="machine-selector-toggle" aria-expanded="${machineSelectorCollapsed ? "false" : "true"}" aria-controls="machine-selector-body"><span>${machineSelectorCollapsed ? "＋" : "−"}</span><small>${machineSelectorCollapsed ? G.i18n.t("menu.open") : G.i18n.t("menu.close")}</small></button>
     </div><div id="machine-selector-body" class="machine-selector-body">${groups.map((group) => `<section class="machine-catalog-group"><h4>${escapeHtml(group.label)}</h4><div class="machine-catalog-track">${group.defs.map(machineCard).join("")}</div></section>`).join("")}</div>`;
     host.classList.remove("hidden");
@@ -499,11 +527,45 @@
   function openPanel(name) {
     if (name === "zones" && !selectedZonePreviewId) selectedZonePreviewId = state.currentZoneId;
     activePanel = name;
+    els.modalOverlay.classList.toggle("modal-overlay--light", name === "hardResetConfirm");
     els.modalOverlay.classList.remove("hidden");
     renderPanel();
   }
-  function closePanel() { activePanel = null; els.modalOverlay.classList.add("hidden"); }
+  function closePanel() {
+    activePanel = null;
+    hardResetReturnPanel = null;
+    els.modalOverlay.classList.remove("modal-overlay--light");
+    els.modalOverlay.classList.add("hidden");
+  }
   function wireModalClose() { const btn = $("modal-close"); if (btn) btn.addEventListener("click", closePanel); }
+
+  function openHardResetConfirm() {
+    hardResetReturnPanel = activePanel || "settings";
+    activePanel = "hardResetConfirm";
+    els.modalOverlay.classList.add("modal-overlay--light");
+    els.modalOverlay.classList.remove("hidden");
+    renderPanel();
+  }
+
+  function renderHardResetConfirmPanel() {
+    els.modalContent.innerHTML = `<button class="panel-close" id="modal-close">✕</button><div class="hard-reset-confirm"><div class="hard-reset-icon">⚠</div><h2>${escapeHtml(G.i18n.t("settings.hardResetConfirmTitle"))}</h2><p class="m-sub">${escapeHtml(G.i18n.t("settings.hardResetConfirmBody"))}</p><div class="hard-reset-actions"><button type="button" class="btn ghost" id="hard-reset-cancel">${escapeHtml(G.i18n.t("settings.hardResetConfirmCancel"))}</button><button type="button" class="btn warn" id="hard-reset-confirm-action">${escapeHtml(G.i18n.t("settings.hardResetConfirmAction"))}</button></div></div>`;
+    const cancel = $("hard-reset-cancel");
+    if (cancel) cancel.addEventListener("click", () => {
+      const previous = hardResetReturnPanel || "settings";
+      hardResetReturnPanel = null;
+      activePanel = null;
+      els.modalOverlay.classList.remove("modal-overlay--light");
+      els.modalOverlay.classList.add("hidden");
+      if (previous && previous !== "hardResetConfirm") openPanel(previous);
+    });
+    const confirmButton = $("hard-reset-confirm-action");
+    if (confirmButton) confirmButton.addEventListener("click", () => {
+      hardResetReturnPanel = null;
+      if (G.Main && typeof G.Main.hardReset === "function") G.Main.hardReset();
+      else { closePanel(); }
+    });
+    wireModalClose();
+  }
 
   function renderPanel() {
     if (!activePanel) return;
@@ -513,6 +575,7 @@
     else if (activePanel === "tech") renderTechPanel();
     else if (activePanel === "settings") renderSettingsPanel();
     else if (activePanel === "oceanFishEncyclopedia") renderOceanFishEncyclopedia();
+    else if (activePanel === "hardResetConfirm") renderHardResetConfirmPanel();
     els.modalContent.scrollTop = scrollTop;
   }
 
@@ -671,7 +734,7 @@
     $("range-sfx").addEventListener("change",()=>onAfterAction());
     $("btn-export-save").addEventListener("click",async()=>{const code=G.Save.exportSave(state),area=$("save-export-code");area.value=code||"";if(!code)return;area.focus();area.select();try{if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(code);}finally{toast(G.i18n.t("notify.saveExported"));}});
     $("btn-import-save").addEventListener("click",()=>{const code=$("save-import-code").value.trim();if(!code)return;const imported=G.Save.importSave(code);if(!imported){G.Audio.sfxError();toast(G.i18n.t("notify.importFailed"),"warn");return;}onStateImported(imported);});
-    $("btn-hard-reset").addEventListener("click",()=>{if(confirm(G.i18n.t("settings.hardResetConfirm")))window.dispatchEvent(new CustomEvent("mft:hardreset"));});
+    $("btn-hard-reset").addEventListener("click",()=>{ G.Audio.unlock(); G.Audio.sfxClick(); openHardResetConfirm(); });
   }
 
   function renderDrawer(){if(!els.drawer||els.drawer.classList.contains("hidden"))return;els.drawer.innerHTML=`<div style="font-family:var(--font-display);font-size:14px;margin-bottom:6px;">${escapeHtml(G.i18n.t("controls.title"))}</div><div style="font-size:11px;color:var(--text-muted);line-height:1.5;">${escapeHtml(G.i18n.t("controls.mobile"))}</div>`;}

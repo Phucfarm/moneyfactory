@@ -254,7 +254,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.common",
                 "weight": 55,
                 "durationSeconds": 24,
-                "reward": 150000,
+                "reward": 75000000,
                 "accent": "#5fd7f4",
                 "secondary": "#2f93c7",
                 "highlight": "#b8f5ff",
@@ -266,7 +266,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.uncommon",
                 "weight": 25,
                 "durationSeconds": 18,
-                "reward": 450000,
+                "reward": 225000000,
                 "accent": "#56d8c4",
                 "secondary": "#258c9d",
                 "highlight": "#b6fff5",
@@ -278,7 +278,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.rare",
                 "weight": 12,
                 "durationSeconds": 13.5,
-                "reward": 1400000,
+                "reward": 700000000,
                 "accent": "#f1dccb",
                 "secondary": "#de95ac",
                 "highlight": "#fff8ef",
@@ -290,7 +290,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.epic",
                 "weight": 6,
                 "durationSeconds": 9.5,
-                "reward": 4500000,
+                "reward": 2250000000,
                 "accent": "#a06cff",
                 "secondary": "#5d25c7",
                 "highlight": "#eedbff",
@@ -302,7 +302,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.mythic",
                 "weight": 2,
                 "durationSeconds": 7.5,
-                "reward": 15000000,
+                "reward": 7500000000,
                 "accent": "#ff5b79",
                 "secondary": "#c62d4f",
                 "highlight": "#ffd36b",
@@ -355,7 +355,7 @@ window.Game.ZoneContent = {
           "maxLevel": 5,
           "cost": {
             "base": 25000000,
-            "growth": 4.8
+            "growth": 6
           },
           "effects": [
             {
@@ -373,7 +373,7 @@ window.Game.ZoneContent = {
           "descriptionKey": "zone.oceanFishCatcher.desc",
           "icon": "🪝",
           "maxLevel": 1,
-          "cost": 10000000,
+          "cost": 150000000,
           "unlock": {
             "requirements": [
               {

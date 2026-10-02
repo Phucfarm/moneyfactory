@@ -12,6 +12,8 @@
 
   const WATER_MECHANIC_ID = "ocean_water_exposure";
   const MACHINE_MECHANIC_ID = "ocean_machine_systems";
+  const machineDefCache = new WeakMap();
+  const slotKeyCache = new WeakMap();
 
   function finiteNumber(value, fallback) {
     return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -34,23 +36,34 @@
   }
 
   function machineDef(ctx, machine) {
-    return ctx && ctx.game && ctx.game.DATA && typeof ctx.game.DATA.machineById === "function"
-      ? ctx.game.DATA.machineById(machine && machine.typeId)
+    if (!machine || typeof machine !== "object") return null;
+    const cached = machineDefCache.get(machine);
+    if (cached && cached.typeId === machine.typeId) return cached.def;
+    const def = ctx && ctx.game && ctx.game.DATA && typeof ctx.game.DATA.machineById === "function"
+      ? ctx.game.DATA.machineById(machine.typeId)
       : null;
+    machineDefCache.set(machine, { typeId: machine.typeId, def: def || null });
+    return def || null;
   }
 
   function slotKey(floor, slot) {
     if (!floor || !slot) return null;
-    return `f${String(floor.id).replace(/[^A-Za-z0-9_$-]/g, "_")}_r${Number(slot.r) || 0}c${Number(slot.c) || 0}`;
+    const cached = slotKeyCache.get(slot);
+    if (cached && cached.floorId === floor.id && cached.r === slot.r && cached.c === slot.c) return cached.key;
+    const key = `f${String(floor.id).replace(/[^A-Za-z0-9_$-]/g, "_")}_r${Number(slot.r) || 0}c${Number(slot.c) || 0}`;
+    slotKeyCache.set(slot, { floorId: floor.id, r: slot.r, c: slot.c, key });
+    return key;
   }
 
   function stateRecord(ctx, floor, slot) {
     const key = slotKey(floor, slot);
     if (!key) return null;
-    const existingRoot = ctx && ctx.mechanics && ctx.mechanics[ctx.mechanic.id];
-    const existing = existingRoot && existingRoot.machines && existingRoot.machines[key];
-    if (existing && typeof existing === "object" && !Array.isArray(existing)) return existing;
-    if (ctx && (ctx.mode === "query" || ctx.mode === "ui")) return null;
+    if (ctx && (ctx.mode === "query" || ctx.mode === "ui")) {
+      const existingRoot = ctx.mechanics && ctx.mechanics[ctx.mechanic.id];
+      const existing = existingRoot && existingRoot.machines && existingRoot.machines[key];
+      return existing && typeof existing === "object" && !Array.isArray(existing) ? existing : null;
+    }
+    // Live hooks must mutate the real mechanic state, never the read-only view.
     const root = ctx.mechanicStateFor(ctx.mechanic.id);
     if (!root.machines || typeof root.machines !== "object" || Array.isArray(root.machines)) root.machines = {};
     if (!root.machines[key] || typeof root.machines[key] !== "object" || Array.isArray(root.machines[key])) {
@@ -333,6 +346,23 @@
   }
 
   class OceanStrandedFish extends G.Zone.ZoneMechanic {
+    constructor(def) {
+      super(def);
+      this._speciesById = new Map();
+      this._weightedSpecies = [];
+      this._speciesWeightTotal = 0;
+      const species = Array.isArray(this.config.species) ? this.config.species : [];
+      for (const item of species) {
+        if (!item || !item.id) continue;
+        this._speciesById.set(item.id, item);
+        const weight = Number(item.weight);
+        if (weight > 0) {
+          this._weightedSpecies.push(item);
+          this._speciesWeightTotal += weight;
+        }
+      }
+    }
+
     isDiscovered(ctx) {
       const discoveries = ctx && ctx.zoneState && Array.isArray(ctx.zoneState.mechanicDiscoveries)
         ? ctx.zoneState.mechanicDiscoveries : [];
@@ -344,14 +374,17 @@
     }
 
     speciesById(id) {
-      return this.speciesList().find((species) => species && species.id === id) || null;
+      return this._speciesById.get(id) || null;
     }
 
     stateRoot(ctx) {
       const source = ctx && ctx.mechanics ? ctx.mechanics[this.id] : null;
-      const root = ctx && (ctx.mode === "query" || ctx.mode === "ui")
-        ? cloneJson(source || {})
-        : ctx.mechanicStateFor(this.id);
+      if (ctx && (ctx.mode === "query" || ctx.mode === "ui")) {
+        // UI/query paths are read-only. Avoid cloning the whole fish-state tree
+        // every frame; the Core already provides a read-only view at this boundary.
+        return source && typeof source === "object" ? source : Object.freeze({ machines: {} });
+      }
+      const root = ctx.mechanicStateFor(this.id);
       if (!root.machines || typeof root.machines !== "object" || Array.isArray(root.machines)) root.machines = {};
       root.clock = Math.max(0, finiteNumber(root.clock, 0));
       root.fishCaught = Math.max(0, Math.floor(finiteNumber(root.fishCaught, 0)));
@@ -372,8 +405,8 @@
     }
 
     pickSpecies() {
-      const species = this.speciesList().filter((item) => item && Number(item.weight) > 0);
-      const total = species.reduce((sum, item) => sum + Number(item.weight || 0), 0);
+      const species = this._weightedSpecies;
+      const total = this._speciesWeightTotal;
       if (!species.length || total <= 0) return null;
       let roll = Math.random() * total;
       for (const item of species) {

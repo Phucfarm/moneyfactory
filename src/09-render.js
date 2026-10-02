@@ -14,9 +14,22 @@
 
   let canvas, ctx, dpr = 1;
   let camera = { x: 0, y: 0, zoom: 1 };
+  let screenCenterX = 0, screenCenterY = 0, inverseZoom = 1;
   let hoverSlot = null;
   let selectedSlot = null;
   let timeAcc = 0;
+  let floorCacheCanvas = null;
+  let floorCacheCtx = null;
+  let floorCacheKey = "";
+  const machineCache = new Map();
+  const tierCache = new Map();
+  const shadeCache = new Map();
+  const hexAlphaCache = new Map();
+  const gearPathCache = new Map();
+  const slotPositionCache = new Array(D.GRID_ROWS * D.GRID_COLS);
+  const cashTextCache = new WeakMap();
+  const renderStatusMap = new Map();
+  let bonusStarPath = null;
 
   // ---- Object pools ---------------------------------------------------------
   const MAX_PARTICLES = 220;
@@ -43,7 +56,7 @@
 
   function init(canvasEl) {
     canvas = canvasEl;
-    ctx = canvas.getContext("2d");
+    ctx = canvas.getContext("2d", { alpha: true, desynchronized: true }) || canvas.getContext("2d");
     resize();
   }
 
@@ -55,28 +68,30 @@
     canvas.height = Math.max(1, Math.floor(rect.height * dpr));
     canvas.style.width = rect.width + "px";
     canvas.style.height = rect.height + "px";
+    screenCenterX = rect.width / 2;
+    screenCenterY = rect.height / 2;
+    inverseZoom = 1 / Math.max(0.000001, Number(camera.zoom) || 1);
+    floorCacheKey = "";
   }
 
-  function setCamera(c) { camera = c; }
+  function setCamera(c) {
+    camera = c || camera;
+    inverseZoom = 1 / Math.max(0.000001, Number(camera.zoom) || 1);
+    floorCacheKey = "";
+  }
   function setHover(slot) { hoverSlot = slot; }
   function setSelected(slot) { selectedSlot = slot; }
 
   function worldToScreen(wx, wy) {
-    const rect = canvas;
-    const cx = rect.width / 2 / dpr;
-    const cy = rect.height / 2 / dpr;
     return {
-      x: cx + (wx - camera.x) * camera.zoom,
-      y: cy + (wy - camera.y) * camera.zoom,
+      x: screenCenterX + (wx - camera.x) * camera.zoom,
+      y: screenCenterY + (wy - camera.y) * camera.zoom,
     };
   }
   function screenToWorld(sx, sy) {
-    const rect = canvas;
-    const cx = rect.width / 2 / dpr;
-    const cy = rect.height / 2 / dpr;
     return {
-      x: camera.x + (sx - cx) / camera.zoom,
-      y: camera.y + (sy - cy) / camera.zoom,
+      x: camera.x + (sx - screenCenterX) * inverseZoom,
+      y: camera.y + (sy - screenCenterY) * inverseZoom,
     };
   }
 
@@ -86,6 +101,16 @@
   }
 
   function slotWorldPos(r, c) {
+    const index = r * D.GRID_COLS + c;
+    if (index >= 0 && index < slotPositionCache.length) {
+      let cached = slotPositionCache[index];
+      if (!cached) {
+        const b = gridWorldBounds();
+        cached = { x: b.x0 + c * CELL + CELL / 2, y: b.y0 + r * CELL + CELL / 2 };
+        slotPositionCache[index] = cached;
+      }
+      return cached;
+    }
     const b = gridWorldBounds();
     return { x: b.x0 + c * CELL + CELL / 2, y: b.y0 + r * CELL + CELL / 2 };
   }
@@ -114,32 +139,39 @@
     ctx.closePath();
   }
 
-  function drawGear(cx, cy, radius, teeth, rotation, color) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(rotation);
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    const inner = radius * 0.62;
-    const toothH = radius * 0.34;
+  function gearPath(teeth) {
+    const key = String(teeth);
+    if (gearPathCache.has(key)) return gearPathCache.get(key);
+    const path = new Path2D();
+    const toothH = 0.34;
     for (let i = 0; i < teeth; i++) {
       const a0 = (i / teeth) * Math.PI * 2;
       const a1 = a0 + (Math.PI * 2) / teeth / 2;
       const a2 = a0 + (Math.PI * 2) / teeth;
-      ctx.lineTo(Math.cos(a0) * radius, Math.sin(a0) * radius);
-      ctx.lineTo(Math.cos(a1) * (radius + toothH), Math.sin(a1) * (radius + toothH));
-      ctx.lineTo(Math.cos(a2) * radius, Math.sin(a2) * radius);
+      path.lineTo(Math.cos(a0), Math.sin(a0));
+      path.lineTo(Math.cos(a1) * (1 + toothH), Math.sin(a1) * (1 + toothH));
+      path.lineTo(Math.cos(a2), Math.sin(a2));
     }
-    ctx.closePath();
-    ctx.fill();
+    path.closePath();
+    gearPathCache.set(key, path);
+    return path;
+  }
+
+  function drawGear(cx, cy, radius, teeth, rotation, color) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.scale(radius, radius);
+    ctx.fillStyle = color;
+    ctx.fill(gearPath(teeth));
     ctx.beginPath();
-    ctx.arc(0, 0, inner, 0, Math.PI * 2);
+    ctx.arc(0, 0, 0.62, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0,0,0,0.25)";
     ctx.fill();
     ctx.restore();
   }
 
-  function drawFloorBackground(floor, zoneDef) {
+  function drawFloorBackground(floor, zoneDef, includeConveyor = true) {
     const theme = zoneDef && zoneDef.theme ? zoneDef.theme : {};
     const b = gridWorldBounds();
     const tl = worldToScreen(b.x0 - CELL * 0.6, b.y0 - CELL * 0.6);
@@ -166,7 +198,7 @@
     }
 
     // conveyor belts along each row if floor has conveyor level
-    if (floor.systems.conveyor > 0) {
+    if (includeConveyor && floor.systems.conveyor > 0) {
       for (let r = 0; r < D.GRID_ROWS; r++) {
         const left = slotWorldPos(r, 0);
         const right = slotWorldPos(r, D.GRID_COLS - 1);
@@ -311,10 +343,18 @@
     ctx.restore();
   }
 
+  function getDataCached(map, id, getter) {
+    if (!id) return null;
+    if (map.has(id)) return map.get(id);
+    const value = getter(id);
+    map.set(id, value || null);
+    return value || null;
+  }
+
   function drawMachine(slot, isHover, isSelected, mechanicStatus) {
     const m = slot.machine;
-    const machine = D.machineById(m.typeId);
-    const tier = D.tierById(m.tierId) || { order: 0, color: "#9aa5ad", glow: "#c7cfd4", particleDensity: 0.5, id: "common" };
+    const machine = getDataCached(machineCache, m.typeId, D.machineById);
+    const tier = getDataCached(tierCache, m.tierId, D.tierById) || { order: 0, color: "#9aa5ad", glow: "#c7cfd4", particleDensity: 0.5, id: "common" };
     const visual = machine || tier;
     const p = slotWorldPos(slot.r, slot.c);
     const s = worldToScreen(p.x, p.y);
@@ -479,7 +519,12 @@
       ctx.fillStyle = "#ffe27a";
       ctx.font = `bold ${12 * camera.zoom}px sans-serif`;
       ctx.textAlign = "center";
-      ctx.fillText(E.formatMoney(m.banked), bcx, bcy - 18 * camera.zoom);
+      let cashText = cashTextCache.get(m);
+      if (!cashText || cashText.value !== m.banked) {
+        cashText = { value: m.banked, text: E.formatMoney(m.banked) };
+        cashTextCache.set(m, cashText);
+      }
+      ctx.fillText(cashText.text, bcx, bcy - 18 * camera.zoom);
     }
 
     // idle smoke puffs from higher tier machines
@@ -506,22 +551,31 @@
   }
 
   function shade(hex, percent) {
-    const num = parseInt(hex.replace("#", ""), 16);
+    const cacheKey = String(hex) + ":" + String(percent);
+    if (shadeCache.has(cacheKey)) return shadeCache.get(cacheKey);
+    const num = parseInt(String(hex).replace("#", ""), 16);
     let r = (num >> 16) + Math.round((percent / 100) * 255);
     let g = ((num >> 8) & 0x00ff) + Math.round((percent / 100) * 255);
     let b = (num & 0x0000ff) + Math.round((percent / 100) * 255);
     r = Math.max(0, Math.min(255, r));
     g = Math.max(0, Math.min(255, g));
     b = Math.max(0, Math.min(255, b));
-    return `rgb(${r},${g},${b})`;
+    const out = `rgb(${r},${g},${b})`;
+    shadeCache.set(cacheKey, out);
+    return out;
   }
   function hexAlpha(hex, a) {
-    const num = parseInt(hex.replace("#", ""), 16);
+    const cacheKey = String(hex) + ":" + String(a);
+    if (hexAlphaCache.has(cacheKey)) return hexAlphaCache.get(cacheKey);
+    const num = parseInt(String(hex).replace("#", ""), 16);
     const r = num >> 16, g = (num >> 8) & 0x00ff, b = num & 0x0000ff;
-    return `rgba(${r},${g},${b},${a})`;
+    const out = `rgba(${r},${g},${b},${a})`;
+    hexAlphaCache.set(cacheKey, out);
+    return out;
   }
 
   function updateAndDrawParticles(dt) {
+    ctx.save();
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       if (!p.active) continue;
@@ -530,17 +584,17 @@
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       const t = p.age / p.life;
-      ctx.save();
       ctx.globalAlpha = (1 - t) * 0.7;
       ctx.fillStyle = p.color || "rgba(255,255,255,0.3)";
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * (1 + t * 0.8), 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
     }
+    ctx.restore();
   }
 
   function updateAndDrawFloaters(dt) {
+    ctx.save();
     for (let i = 0; i < floaters.length; i++) {
       const f = floaters[i];
       if (!f.active) continue;
@@ -548,7 +602,6 @@
       if (f.age >= f.life) { f.active = false; continue; }
       const t = f.age / f.life;
       const y = f.y - t * 46 * camera.zoom;
-      ctx.save();
       ctx.globalAlpha = 1 - t;
       ctx.font = `bold ${(f.crit ? 20 : 15) * camera.zoom}px sans-serif`;
       ctx.textAlign = "center";
@@ -557,8 +610,8 @@
       ctx.lineWidth = 3;
       ctx.strokeText(f.text, f.x, y);
       ctx.fillText(f.text, f.x, y);
-      ctx.restore();
     }
+    ctx.restore();
   }
 
   function spawnCollectFloater(worldX, worldY, amount, crit) {
@@ -570,36 +623,92 @@
     spawnFloater({ x: s.x, y: s.y - 30, text: "\u2726 Bonus!", life: 1.6, crit: true, color: "#ff5da2" });
   }
 
+  function ensureBonusStarPath() {
+    if (bonusStarPath) return bonusStarPath;
+    const spikes = 5, innerRatio = 6 / 14;
+    let rot = (Math.PI / 2) * 3;
+    const step = Math.PI / spikes;
+    const path = new Path2D();
+    path.moveTo(0, -1);
+    for (let i = 0; i < spikes; i++) {
+      let x = Math.cos(rot), y = Math.sin(rot);
+      path.lineTo(x, y); rot += step;
+      x = Math.cos(rot) * innerRatio; y = Math.sin(rot) * innerRatio;
+      path.lineTo(x, y); rot += step;
+    }
+    path.lineTo(0, -1);
+    path.closePath();
+    bonusStarPath = path;
+    return bonusStarPath;
+  }
+
   function drawBonusMarker(slot) {
     const p = slotWorldPos(slot.r, slot.c);
     const s = worldToScreen(p.x, p.y - CELL * 0.42);
     const bob = Math.sin(timeAcc * 4) * 4 * camera.zoom;
+    const rotation = Math.sin(timeAcc * 3) * 0.2;
+    const outerR = 14 * camera.zoom;
     ctx.save();
     ctx.translate(s.x, s.y + bob);
-    ctx.rotate(Math.sin(timeAcc * 3) * 0.2);
+    ctx.rotate(rotation);
+    ctx.scale(outerR, outerR);
     ctx.fillStyle = "#ff5da2";
-    ctx.beginPath();
-    star(0, 0, 5, 14 * camera.zoom, 6 * camera.zoom);
-    ctx.fill();
+    ctx.fill(ensureBonusStarPath());
     ctx.strokeStyle = "#ffd3ea";
-    ctx.lineWidth = 2;
-    star(0, 0, 5, 14 * camera.zoom, 6 * camera.zoom);
-    ctx.stroke();
+    ctx.lineWidth = 2 / outerR;
+    ctx.stroke(ensureBonusStarPath());
     ctx.restore();
   }
-  function star(cx, cy, spikes, outerR, innerR) {
-    let rot = (Math.PI / 2) * 3;
-    const step = Math.PI / spikes;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - outerR);
-    for (let i = 0; i < spikes; i++) {
-      let x = cx + Math.cos(rot) * outerR, y = cy + Math.sin(rot) * outerR;
-      ctx.lineTo(x, y); rot += step;
-      x = cx + Math.cos(rot) * innerR; y = cy + Math.sin(rot) * innerR;
-      ctx.lineTo(x, y); rot += step;
+
+  function floorBackgroundKey(state, floor, zoneDef) {
+    if (!floor || !zoneDef) return "";
+    return [
+      state.currentZoneId, floor.id,
+      camera.x, camera.y, camera.zoom,
+      canvas.width, canvas.height, dpr,
+    ].join("|");
+  }
+
+  function ensureFloorCache() {
+    const w = Math.max(1, canvas.width);
+    const h = Math.max(1, canvas.height);
+    if (!floorCacheCanvas) {
+      floorCacheCanvas = document.createElement("canvas");
+      floorCacheCtx = floorCacheCanvas.getContext("2d");
     }
-    ctx.lineTo(cx, cy - outerR);
-    ctx.closePath();
+    if (floorCacheCanvas.width !== w || floorCacheCanvas.height !== h) {
+      floorCacheCanvas.width = w;
+      floorCacheCanvas.height = h;
+      floorCacheKey = "";
+    }
+    return floorCacheCtx;
+  }
+
+  function drawCachedFloorBackground(floor, zoneDef, key) {
+    const cacheCtx = ensureFloorCache();
+    if (!cacheCtx) {
+      drawFloorBackground(floor, zoneDef, true);
+      return;
+    }
+    if (floorCacheKey !== key) {
+      const mainCtx = ctx;
+      ctx = floorCacheCtx;
+      floorCacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawFloorBackground(floor, zoneDef, false);
+      ctx = mainCtx;
+      floorCacheKey = key;
+    }
+    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+    ctx.drawImage(floorCacheCanvas, 0, 0, canvas.width / dpr, canvas.height / dpr);
+    if (floor.systems.conveyor > 0) {
+      for (let r = 0; r < D.GRID_ROWS; r++) {
+        const left = slotWorldPos(r, 0);
+        const right = slotWorldPos(r, D.GRID_COLS - 1);
+        const sL = worldToScreen(left.x - CELL / 2, left.y + CELL * 0.34);
+        const sR = worldToScreen(right.x + CELL / 2, right.y + CELL * 0.44);
+        drawConveyorStrip(sL.x, sL.y, sR.x - sL.x, (sR.y - sL.y) + 14 * camera.zoom, floor.systems.conveyor);
+      }
+    }
   }
 
   // ---- Main frame render -------------------------------------------------------
@@ -610,16 +719,18 @@
     ctx.scale(dpr, dpr);
 
     const zoneDef = D.zoneById(state.currentZoneId);
-    drawFloorBackground(floor, zoneDef);
+    drawCachedFloorBackground(floor, zoneDef, floorBackgroundKey(state, floor, zoneDef));
 
-    const statusMap = new Map();
+    const statusMap = renderStatusMap;
+    statusMap.clear();
     ((mechanicUi && mechanicUi.machineStatuses) || []).forEach((status) => {
       const key = status.floorId + ":" + status.r + ":" + status.c;
       const existing = statusMap.get(key);
       if (!existing || (status.priority || 0) >= (existing.priority || 0)) statusMap.set(key, status);
     });
 
-    floor.grid.forEach((slot) => {
+    for (let i = 0; i < floor.grid.length; i++) {
+      const slot = floor.grid[i];
       const isHover = hoverSlot && hoverSlot.r === slot.r && hoverSlot.c === slot.c;
       const isSelected = selectedSlot && selectedSlot.r === slot.r && selectedSlot.c === slot.c;
       if (slot.machine) {
@@ -629,7 +740,7 @@
       } else {
         drawEmptySlot(slot.r, slot.c);
       }
-    });
+    }
 
     updateAndDrawParticles(dt);
     updateAndDrawFloaters(dt);
@@ -638,7 +749,7 @@
   }
 
   G.Render = {
-    init, resize, setCamera, setHover, setSelected,
+    init, resize, setCamera, setHover, setSelected, invalidate: () => { floorCacheKey = ""; },
     worldToScreen, screenToWorld, slotAtScreen, slotAtWorld, slotWorldPos, gridWorldBounds,
     render, spawnCollectFloater, spawnBonusIcon, spawnParticle,
     CELL,

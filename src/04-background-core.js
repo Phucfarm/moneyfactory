@@ -16,6 +16,13 @@
   let activeBehavior = null;
   let activeZoneSnapshot = null;
   let activeDefSnapshot = null;
+  let cachedUpdateStateView = null;
+  let cachedUpdateState = null;
+  let cachedUpdateZoneId = null;
+  let cachedUpdateViewAt = -Infinity;
+  let updateContext = null;
+  let updateContextDt = 0;
+  let updateContextState = null;
 
   function isPlainObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
   function sanitizeClassName(value, fallback) { return typeof value === "string" && /^[A-Za-z0-9_-]+$/.test(value) ? value : fallback; }
@@ -99,9 +106,20 @@
     return deepFreeze(view);
   }
 
-  function context(state, extra) {
+  function getCachedUpdateStateView(state) {
+    const now = performance.now();
+    if (!cachedUpdateStateView || cachedUpdateState !== state || cachedUpdateZoneId !== activeZoneId || now - cachedUpdateViewAt >= 100) {
+      cachedUpdateStateView = buildStateView(state, activeZoneId);
+      cachedUpdateState = state;
+      cachedUpdateZoneId = activeZoneId;
+      cachedUpdateViewAt = now;
+    }
+    return cachedUpdateStateView;
+  }
+
+  function context(state, extra, cacheStateView) {
     return Object.assign({
-      stateView: buildStateView(state, activeZoneId),
+      stateView: cacheStateView ? getCachedUpdateStateView(state) : buildStateView(state, activeZoneId),
       zoneId: activeZoneId,
       zoneDef: activeZoneSnapshot,
       element: root,
@@ -115,6 +133,11 @@
     activeBehavior = null;
     activeZoneSnapshot = null;
     activeDefSnapshot = null;
+    cachedUpdateStateView = null;
+    updateContext = null;
+    updateContextState = null;
+    cachedUpdateState = null;
+    cachedUpdateZoneId = null;
   }
 
   function sync(state) {
@@ -150,8 +173,20 @@
 
   function update(state, dt) {
     if (!activeBehavior) return;
-    try { activeBehavior.update(context(state, { dt: Math.max(0, Number(dt) || 0) })); }
-    catch (error) { console.error("Background behavior disabled:", activeZoneId, error); activeBehavior = null; }
+    updateContextState = state;
+    updateContextDt = Math.max(0, Number(dt) || 0);
+    if (!updateContext) {
+      updateContext = Object.freeze({
+        get stateView() { return getCachedUpdateStateView(updateContextState); },
+        zoneId: activeZoneId,
+        zoneDef: activeZoneSnapshot,
+        element: root,
+        config: activeDefSnapshot && isPlainObject(activeDefSnapshot.config) ? activeDefSnapshot.config : {},
+        get dt() { return updateContextDt; },
+      });
+    }
+    try { activeBehavior.update(updateContext); }
+    catch (error) { console.error("Background behavior disabled:", activeZoneId, error); activeBehavior = null; updateContext = null; updateContextState = null; }
   }
 
   function pointer(method, state, x, y, pointerType) {

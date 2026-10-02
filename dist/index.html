@@ -145,7 +145,7 @@ html, body {
 
 /* ---------------- Global machine catalogue ---------------- */
 #zone-machine-selector {
-  position:absolute; left:10px; bottom:96px; z-index:18; width:min(760px,calc(100% - 20px)); max-height:260px; overflow:hidden;
+  position:absolute; left:10px; bottom:140px; z-index:18; width:min(760px,calc(100% - 20px)); max-height:260px; overflow:hidden;
   padding:7px 9px 8px; border:1px solid rgba(255,255,255,.12); border-radius:var(--radius-md); background:linear-gradient(180deg,rgba(28,33,43,.94),rgba(15,18,25,.94));
   box-shadow:0 14px 36px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
 }
@@ -259,7 +259,9 @@ html, body {
 .btn.brass { background: var(--accent-brass); color: #2a1c02; }
 .btn.warn { background: var(--accent-warn); color: #2a0d02; }
 .btn.ghost { background: transparent; border: 1px solid var(--line-strong); color: var(--text-primary); }
-.panel-close { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; }
+.panel-close { position: absolute; top: 5px; right: 5px; width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(18,20,26,.34); color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; touch-action: manipulation; z-index: 5; }
+.panel-close:hover, .panel-close:focus-visible { color: var(--text-primary); border-color: var(--line-strong); background: rgba(255,255,255,.06); outline: none; }
+.panel-close:active { transform: scale(.96); }
 
 /* ---------------- Modal overlay ---------------- */
 #modal-overlay {
@@ -278,6 +280,12 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 #modal-content h2 { font-family: var(--font-display); font-size: 24px; margin: 4px 0 6px; }
+.modal-overlay--light { background: rgba(8,9,12,0.34) !important; backdrop-filter: blur(2px); }
+.hard-reset-confirm { text-align: center; padding: 18px 8px 4px; }
+.hard-reset-icon { width: 48px; height: 48px; margin: 2px auto 12px; display:grid; place-items:center; border:1px solid rgba(240,166,78,.45); border-radius:12px; background:rgba(94,53,18,.18); color:var(--accent-warn); font:800 24px/1 var(--font-display); }
+.hard-reset-confirm h2 { margin: 0 0 8px !important; }
+.hard-reset-actions { display:flex; justify-content:center; gap:8px; margin-top:18px; flex-wrap:wrap; }
+.hard-reset-actions .btn { min-width:145px; min-height:40px; }
 #modal-content .m-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 14px; }
 .tab-row { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .tab-btn { background: none; border: none; color: var(--text-muted); font-family: var(--font-display); font-size: 14px; padding: 8px 12px; cursor: pointer; border-bottom: 2px solid transparent; }
@@ -426,6 +434,7 @@ html, body {
   #zone-machine-selector.is-collapsed { width:auto; max-width:280px; }
   #machine-panel { right: calc(58px + env(safe-area-inset-right, 0px)); top: 90px; width: min(220px, calc(100vw - 70px)); max-height: calc(100% - 108px); touch-action: pan-y; -webkit-overflow-scrolling: touch; }
   #location-bar { top: 44px; left: calc(8px + env(safe-area-inset-left, 0px)); right: calc(8px + env(safe-area-inset-right, 0px)); }
+  #location-bar .lb-btn { padding-top: 7px; padding-bottom: 9px; line-height: 1.1; }
   #drawer-toggle {
     position: absolute; left: calc(10px + env(safe-area-inset-left, 0px)); top: 90px; z-index: 22;
     width: 40px; height: 40px; border-radius: var(--radius-sm);
@@ -440,7 +449,7 @@ html, body {
 @media (max-width: 700px) {
   #mechanic-indicator-stack { top: 74px; width: min(96vw, 620px); }
   /* DEV CHEAT CODE UI — REMOVE THIS BLOCK WITH #dev-cheat-money BEFORE RELEASE. */
-  .dev-cheat-btn { bottom: calc(230px + env(safe-area-inset-bottom, 0px)); }
+  .dev-cheat-btn { left: calc(60px + env(safe-area-inset-left, 0px)); right: auto; top: calc(90px + env(safe-area-inset-top, 0px)); bottom: auto; }
 
 #toast-stack { top: 112px; }
   .mechanic-indicator { max-width: calc(100vw - 18px); }
@@ -490,7 +499,8 @@ html, body {
 #zone-background > * { max-width:100%; max-height:100%; }
 
 @media (max-width: 700px) {
-  #zone-machine-selector { left:calc(8px + env(safe-area-inset-left,0px)); right:calc(8px + env(safe-area-inset-right,0px)); bottom:calc(78px + env(safe-area-inset-bottom,0px)); max-width:none; max-height:none; padding:6px; }
+  #zone-machine-selector { left:calc(8px + env(safe-area-inset-left,0px)); right:calc(8px + env(safe-area-inset-right,0px)); bottom:calc(10px + env(safe-area-inset-bottom,0px)); max-width:none; max-height:126px; padding:6px; }
+  #zone-machine-selector:not(.is-collapsed) { bottom:calc(58px + env(safe-area-inset-bottom,0px)); }
   #zone-machine-selector.is-collapsed { width:auto; max-width:290px; }
   .machine-selector-title small { max-width:52vw; }
   .machine-selector-toggle small { display:none; }
@@ -645,6 +655,21 @@ html, body {
 .rotate-card{width:min(360px,90vw);padding:28px 22px;border:1px solid var(--line-strong);border-radius:14px;background:linear-gradient(180deg,rgba(30,33,40,.98),rgba(20,22,28,.99));box-shadow:0 18px 55px rgba(0,0,0,.5);font-family:var(--font-display);font-size:15px;line-height:1.4;}
 .rotate-icon{font-size:46px;color:var(--accent-brass);margin-bottom:12px;}
 
+/* Fullscreen recovery: keep the game visible and the simulation running underneath. */
+.fullscreen-recovery { position:fixed; inset:0; z-index:1190; pointer-events:none; display:block; color:var(--text-primary); }
+.fullscreen-recovery-card { pointer-events:auto; position:absolute; top:max(12px,env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); width:min(380px,calc(100vw - 24px)); padding:12px 14px; border:1px solid var(--line-strong); border-radius:12px; background:rgba(20,22,28,.9); backdrop-filter:blur(10px); box-shadow:0 10px 28px rgba(0,0,0,.34); text-align:left; }
+.fullscreen-recovery-title { font:800 14px/1.2 var(--font-display); margin-bottom:4px; }
+.fullscreen-recovery-body { font-size:11px; line-height:1.45; color:var(--text-muted); padding-right:2px; }
+.fullscreen-recovery-button { margin-top:9px; min-height:36px; padding:8px 13px; touch-action:manipulation; }
+
+@media (max-width:700px) {
+  .fullscreen-recovery-card { top:max(8px,env(safe-area-inset-top,0px)); width:min(340px,calc(100vw - 16px)); padding:10px 11px; }
+  .fullscreen-recovery-body { font-size:10px; }
+  .fullscreen-recovery-button { min-height:38px; width:100%; margin-top:8px; }
+  .hard-reset-actions { flex-direction:column-reverse; }
+  .hard-reset-actions .btn { width:100%; }
+}
+
 </style>
 </head>
 <body>
@@ -658,6 +683,7 @@ html, body {
 </div>
 
 <div id="rotate-overlay" class="rotate-overlay hidden" aria-hidden="true"><div class="rotate-card"><div class="rotate-icon">↻</div><div data-i18n="orientation.rotate">Please rotate your device to landscape</div></div></div>
+<div id="fullscreen-recovery" class="fullscreen-recovery hidden" aria-hidden="true"><div class="fullscreen-recovery-card"><div class="fullscreen-recovery-title" data-i18n="fullscreenRecovery.title">Fullscreen ended</div><div class="fullscreen-recovery-body" data-i18n="fullscreenRecovery.body">Your factory is still running. Press Continue to restore fullscreen and keep playing.</div><button id="fullscreen-recovery-continue" class="btn brass fullscreen-recovery-button" type="button" data-i18n="fullscreenRecovery.continue">Continue playing</button></div></div>
 
 <div id="app" class="game-hidden">
 
@@ -1102,7 +1128,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.common",
                 "weight": 55,
                 "durationSeconds": 24,
-                "reward": 150000,
+                "reward": 75000000,
                 "accent": "#5fd7f4",
                 "secondary": "#2f93c7",
                 "highlight": "#b8f5ff",
@@ -1114,7 +1140,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.uncommon",
                 "weight": 25,
                 "durationSeconds": 18,
-                "reward": 450000,
+                "reward": 225000000,
                 "accent": "#56d8c4",
                 "secondary": "#258c9d",
                 "highlight": "#b6fff5",
@@ -1126,7 +1152,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.rare",
                 "weight": 12,
                 "durationSeconds": 13.5,
-                "reward": 1400000,
+                "reward": 700000000,
                 "accent": "#f1dccb",
                 "secondary": "#de95ac",
                 "highlight": "#fff8ef",
@@ -1138,7 +1164,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.epic",
                 "weight": 6,
                 "durationSeconds": 9.5,
-                "reward": 4500000,
+                "reward": 2250000000,
                 "accent": "#a06cff",
                 "secondary": "#5d25c7",
                 "highlight": "#eedbff",
@@ -1150,7 +1176,7 @@ window.Game.ZoneContent = {
                 "rarityKey": "fish.rarity.mythic",
                 "weight": 2,
                 "durationSeconds": 7.5,
-                "reward": 15000000,
+                "reward": 7500000000,
                 "accent": "#ff5b79",
                 "secondary": "#c62d4f",
                 "highlight": "#ffd36b",
@@ -1203,7 +1229,7 @@ window.Game.ZoneContent = {
           "maxLevel": 5,
           "cost": {
             "base": 25000000,
-            "growth": 4.8
+            "growth": 6
           },
           "effects": [
             {
@@ -1221,7 +1247,7 @@ window.Game.ZoneContent = {
           "descriptionKey": "zone.oceanFishCatcher.desc",
           "icon": "🪝",
           "maxLevel": 1,
-          "cost": 10000000,
+          "cost": 150000000,
           "unlock": {
             "requirements": [
               {
@@ -1831,6 +1857,10 @@ window.Game.AudioContent = {
       "settings.sfxVolume": "SFX Volume",
       "settings.hardReset": "Erase Save & Restart",
       "settings.hardResetConfirm": "This permanently deletes ALL progress. Are you sure?",
+      "settings.hardResetConfirmTitle": "Erase all progress?",
+      "settings.hardResetConfirmBody": "This resets every zone, machine, upgrade, and setting in this save.",
+      "settings.hardResetConfirmCancel": "Cancel",
+      "settings.hardResetConfirmAction": "Erase & Restart",
       "settings.export": "Export Save",
       "settings.import": "Import Save",
       "settings.importPlaceholder": "Paste save code here",
@@ -1866,6 +1896,10 @@ window.Game.AudioContent = {
       "common.used": "used",
       "common.cyclesPerSec": "cyc/s",
       "orientation.rotate": "Please rotate your device to landscape",
+      "fullscreenRecovery.title": "Fullscreen ended",
+      "fullscreenRecovery.body": "Your factory is still running. Press Continue to restore fullscreen and keep playing.",
+      "fullscreenRecovery.continue": "Continue playing",
+      "fullscreenRecovery.unsupported": "Fullscreen is unavailable in this browser.",
       "start.title": "Money Factory",
       "start.play": "PLAY",
       "background.downtown.name": "Downtown",
@@ -2074,6 +2108,10 @@ window.Game.AudioContent = {
       "settings.sfxVolume": "Volumen de Efectos",
       "settings.hardReset": "Borrar Partida y Reiniciar",
       "settings.hardResetConfirm": "Esto eliminará PERMANENTEMENTE TODO el progreso. ¿Estás seguro?",
+      "settings.hardResetConfirmTitle": "¿Borrar todo el progreso?",
+      "settings.hardResetConfirmBody": "Esto reinicia todas las zonas, máquinas, mejoras y ajustes de esta partida.",
+      "settings.hardResetConfirmCancel": "Cancelar",
+      "settings.hardResetConfirmAction": "Borrar y reiniciar",
       "settings.export": "Exportar Partida",
       "settings.import": "Importar Partida",
       "settings.importPlaceholder": "Pega aquí el código de la partida",
@@ -2105,6 +2143,10 @@ window.Game.AudioContent = {
       "common.used": "usado",
       "common.cyclesPerSec": "ciclos/s",
       "orientation.rotate": "Gira tu dispositivo al modo horizontal",
+      "fullscreenRecovery.title": "Se salió de pantalla completa",
+      "fullscreenRecovery.body": "Tu fábrica sigue funcionando. Pulsa Continuar para recuperar la pantalla completa.",
+      "fullscreenRecovery.continue": "Continuar jugando",
+      "fullscreenRecovery.unsupported": "Este navegador no admite pantalla completa.",
       "start.title": "Fábrica de Dinero",
       "start.play": "JUGAR",
       "background.downtown.name": "Centro",
@@ -2325,6 +2367,10 @@ window.Game.AudioContent = {
       "settings.sfxVolume": "Âm Lượng Hiệu Ứng",
       "settings.hardReset": "Xóa Dữ Liệu & Bắt Đầu Lại",
       "settings.hardResetConfirm": "Thao tác này sẽ xóa VĨNH VIỄN toàn bộ tiến trình. Bạn có chắc không?",
+      "settings.hardResetConfirmTitle": "Xóa toàn bộ tiến trình?",
+      "settings.hardResetConfirmBody": "Thao tác này sẽ đặt lại toàn bộ zone, máy, nâng cấp và cài đặt trong save này.",
+      "settings.hardResetConfirmCancel": "Hủy",
+      "settings.hardResetConfirmAction": "Xóa & Bắt đầu lại",
       "settings.export": "Xuất File Lưu",
       "settings.import": "Nhập File Lưu",
       "settings.importPlaceholder": "Dán mã lưu vào đây",
@@ -2360,6 +2406,10 @@ window.Game.AudioContent = {
       "common.used": "đã dùng",
       "common.cyclesPerSec": "chu kỳ/giây",
       "orientation.rotate": "Vui lòng xoay thiết bị sang chế độ ngang",
+      "fullscreenRecovery.title": "Đã thoát toàn màn hình",
+      "fullscreenRecovery.body": "Nhà máy của bạn vẫn đang chạy. Bấm Tiếp tục để bật lại toàn màn hình và chơi tiếp.",
+      "fullscreenRecovery.continue": "Tiếp tục chơi",
+      "fullscreenRecovery.unsupported": "Trình duyệt này không hỗ trợ toàn màn hình.",
       "start.title": "Nhà Máy Tiền",
       "start.play": "CHƠI",
     },
@@ -2579,6 +2629,10 @@ window.Game.AudioContent = {
       "settings.sfxVolume": "Volume Efek Suara",
       "settings.hardReset": "Hapus Save & Mulai Ulang",
       "settings.hardResetConfirm": "Ini akan menghapus SEMUA progres secara permanen. Yakin?",
+      "settings.hardResetConfirmTitle": "Hapus semua progres?",
+      "settings.hardResetConfirmBody": "Ini akan mengatur ulang semua zona, mesin, peningkatan, dan pengaturan pada penyimpanan ini.",
+      "settings.hardResetConfirmCancel": "Batal",
+      "settings.hardResetConfirmAction": "Hapus & Mulai Lagi",
       "settings.export": "Ekspor Save",
       "settings.import": "Impor Save",
       "settings.importPlaceholder": "Tempel kode save di sini",
@@ -2614,6 +2668,10 @@ window.Game.AudioContent = {
       "common.used": "terpakai",
       "common.cyclesPerSec": "siklus/dtk",
       "orientation.rotate": "Putar perangkat ke mode lanskap",
+      "fullscreenRecovery.title": "Mode layar penuh berakhir",
+      "fullscreenRecovery.body": "Pabrikmu masih berjalan. Tekan Lanjut bermain untuk mengaktifkan kembali layar penuh.",
+      "fullscreenRecovery.continue": "Lanjut bermain",
+      "fullscreenRecovery.unsupported": "Browser ini tidak mendukung layar penuh.",
       "start.title": "Pabrik Uang",
       "start.play": "MAIN",
     },
@@ -2894,7 +2952,7 @@ window.Game.AudioContent = {
       if (loaded.camera && typeof loaded.camera === "object") {
         if (typeof loaded.camera.x === "number" && isFinite(loaded.camera.x)) out.camera.x = loaded.camera.x;
         if (typeof loaded.camera.y === "number" && isFinite(loaded.camera.y)) out.camera.y = loaded.camera.y;
-        if (typeof loaded.camera.zoom === "number" && isFinite(loaded.camera.zoom) && loaded.camera.zoom > 0) out.camera.zoom = clamp(loaded.camera.zoom, 0.5, 2.5);
+        if (typeof loaded.camera.zoom === "number" && isFinite(loaded.camera.zoom) && loaded.camera.zoom > 0) out.camera.zoom = clamp(loaded.camera.zoom, 0.5, 2.8);
       }
 
       if (typeof loaded.currentZoneId === "string" && D.zoneById(loaded.currentZoneId)) out.currentZoneId = loaded.currentZoneId;
@@ -3199,9 +3257,22 @@ window.Game.AudioContent = {
 (function (G) {
   "use strict";
   const D = G.DATA;
+  const techEffectCache = new WeakMap();
+  const machineDefinitionCache = new WeakMap();
 
   // ---- Tech tree effect aggregation -----------------------------------
+  // Tech purchases are infrequent compared with the game loop. Cache the aggregate
+  // per state and invalidate only when a tech is actually purchased.
+  const EMPTY_TECH_EFFECTS = Object.freeze({
+    globalOutputMult: 0, globalSpeedMult: 0, critChanceAdd: 0, powerDiscount: 0,
+    collectorSpeedMult: 0, rndRateMult: 0, upgradeDiscount: 0, vaultInterestAdd: 0,
+    machineCostDiscount: 0,
+  });
+
   function techEffects(state) {
+    if (!state || !state.skills || !state.skills.tech) return EMPTY_TECH_EFFECTS;
+    const cached = techEffectCache.get(state);
+    if (cached) return cached;
     const eff = {
       globalOutputMult: 0,
       globalSpeedMult: 0,
@@ -3220,8 +3291,14 @@ window.Game.AudioContent = {
       const e = t.effect;
       if (eff[e.type] !== undefined) eff[e.type] += e.value;
     });
+    techEffectCache.set(state, eff);
     return eff;
   }
+
+  function invalidateTechEffects(state) {
+    if (state && typeof state === "object") techEffectCache.delete(state);
+  }
+
 
   // ---- Machine placement cost: scales with how many of that tier are
   // already placed anywhere in the factory (global count per tier). ----
@@ -3276,13 +3353,16 @@ window.Game.AudioContent = {
   }
 
   function machineDefinition(machine) {
-    const direct = D.machineById(machine && machine.typeId);
-    if (direct) return direct;
-    const legacyTierId = machine && machine.tierId;
+    if (!machine || typeof machine !== "object") return null;
+    if (machineDefinitionCache.has(machine)) return machineDefinitionCache.get(machine);
+    const direct = D.machineById(machine.typeId);
+    if (direct) { machineDefinitionCache.set(machine, direct); return direct; }
+    const legacyTierId = machine.tierId;
     if (legacyTierId) {
       const tierMachine = D.machineById("printer_" + legacyTierId);
-      if (tierMachine) return tierMachine;
+      if (tierMachine) { machineDefinitionCache.set(machine, tierMachine); return tierMachine; }
     }
+    machineDefinitionCache.set(machine, null);
     return null;
   }
 
@@ -3442,7 +3522,7 @@ window.Game.AudioContent = {
   }
 
   G.Econ = {
-    techEffects, tierPlacedCount, machineCountById, machineCostById, machineCost, tierUnlocked,
+    techEffects, invalidateTechEffects, tierPlacedCount, machineCountById, machineCostById, machineCost, tierUnlocked,
     upgradeCost, machineDefinition, machineCooldown, machineBaseYield, machineCritChance, machineCritMult,
     floorOutputMult, floorSystemCost, collectorTickSeconds,
     roomCost, rndRatePerSec, vaultInterestPerHour,
@@ -3483,6 +3563,7 @@ window.Game.AudioContent = {
   const MECHANIC_UI_VARIANTS = new Set(["disabled", "buff", "warning", "info"]);
   const MECHANIC_UI_TONES = new Set(["info", "good", "warn", "danger", "muted"]);
   const MECHANIC_DECORATION_TYPES = new Set(["fish"]);
+  const EMPTY_READONLY_OBJECT = Object.freeze({});
 
   function isPlainObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
   function cloneJson(value) { try { return JSON.parse(JSON.stringify(value)); } catch (_e) { return {}; } }
@@ -3742,6 +3823,7 @@ window.Game.AudioContent = {
     "modifyProduction", "modifyCooldown", "onMachineCycle", "onMachinePlaced", "onMachineCollected",
     "onAfterTick", "onAfterZoneTick", "onGameEvent", "onCheckSecrets", "getUIState",
   ];
+  const HOOK_METHODS = CONTRACT_METHODS.slice();
 
   function validateMechanicClass(MechanicClass) {
     if (typeof MechanicClass !== "function") throw new Error("Zone mechanic must be a class/constructor");
@@ -3842,15 +3924,25 @@ window.Game.AudioContent = {
 
   function buildMechanicGameView(state) {
     const data = D || {};
-    const cloneDef = (fn, args) => {
-      try { return deepFreeze(cloneJson(typeof fn === "function" ? fn(...args) : null)); } catch (_e) { return null; }
+    const machineCache = new Map();
+    const tierCache = new Map();
+    const zoneCache = new Map();
+    const floorCache = new Map();
+    const cachedClone = (cache, key, fn, args) => {
+      const cacheKey = String(key);
+      if (cache.has(cacheKey)) return cache.get(cacheKey);
+      try {
+        const value = deepFreeze(cloneJson(typeof fn === "function" ? fn(...args) : null));
+        cache.set(cacheKey, value);
+        return value;
+      } catch (_e) { return null; }
     };
     return Object.freeze({
       DATA: Object.freeze({
-        machineById: (id) => cloneDef(data.machineById, [id]),
-        tierById: (id) => cloneDef(data.tierById, [id]),
-        zoneById: (id) => cloneDef(data.zoneById, [id]),
-        floorById: (zoneId, floorId) => cloneDef(data.floorById, [zoneId, floorId]),
+        machineById: (id) => cachedClone(machineCache, id, data.machineById, [id]),
+        tierById: (id) => cachedClone(tierCache, id, data.tierById, [id]),
+        zoneById: (id) => cachedClone(zoneCache, id, data.zoneById, [id]),
+        floorById: (zoneId, floorId) => cachedClone(floorCache, String(zoneId) + "|" + String(floorId), data.floorById, [zoneId, floorId]),
       }),
       Econ: Object.freeze({
         machineCooldown: (machine) => G.Econ && typeof G.Econ.machineCooldown === "function" ? G.Econ.machineCooldown(machine, state) : null,
@@ -3873,7 +3965,16 @@ window.Game.AudioContent = {
       this.zoneDef = zoneDef;
       this.zoneState = zoneState;
       this.instances = new Map();
+      this.uiInstances = new Map();
+      this.hotContexts = new Map();
+      this.uiContexts = new Map();
+      this.uiFloorId = null;
+      this.uiFloorProxy = null;
+      this.hooks = Object.create(null);
+      HOOK_METHODS.forEach((name) => { this.hooks[name] = []; });
       this.disabled = new Set();
+      this.mechanicGameView = buildMechanicGameView(state);
+      this.uiZoneDef = buildUiZoneDef(zoneDef);
       ensureZoneContainers(zoneState, zoneDef);
     }
 
@@ -3888,6 +3989,15 @@ window.Game.AudioContent = {
         validateMechanicClass(MechanicClass);
         const instance = new MechanicClass(def);
         this.instances.set(def.id, instance);
+        const uiInstance = Object.create(Object.getPrototypeOf(instance));
+        Object.getOwnPropertyNames(instance).forEach((key) => { uiInstance[key] = instance[key]; });
+        Object.freeze(uiInstance);
+        this.uiInstances.set(def.id, uiInstance);
+        for (const method of HOOK_METHODS) {
+          if (typeof instance[method] === "function" && instance[method] !== ZoneMechanicContract.prototype[method]) {
+            this.hooks[method].push(instance);
+          }
+        }
         const attached = this.call(instance, "onAttach", this.context(instance, { mode: "attach" }));
         if (attached === false) {
           this.disable(def.id, new Error("Mechanic rejected attachment"));
@@ -3905,38 +4015,49 @@ window.Game.AudioContent = {
       if (error) console.error("Zone mechanic quarantined:", this.zoneDef.id, mechanicId, error);
     }
 
-    uiContext(mechanic, uiSnapshot, floorId, calculationState) {
-      const snapshot = uiSnapshot || buildUiStateSnapshot(this.state);
-      const calcState = calculationState || cloneJson(this.state);
-      const zoneState = (snapshot.zones || []).find((z) => z && z.id === this.zoneDef.id) || {};
-      const floor = (zoneState.floors || []).find((item) => item && item.id === floorId) || null;
-      const mechanics = zoneState.mechanicState || {};
-      const variables = zoneState.variables || {};
-      const zoneDefSnapshot = buildUiZoneDef(this.zoneDef);
-      return Object.freeze({
-        game: buildUiGameView(),
-        state: snapshot,
+    uiContext(mechanic, _uiSnapshot, floorId, _calculationState) {
+      // UI contexts are read-only and synchronous. Keep one frozen facade per
+      // mechanic and update only the two values that can change between frames.
+      // This removes repeated object creation/freeze work from the render loop.
+      this.uiFloorId = floorId;
+      const liveFloor = (this.zoneState.floors || []).find((item) => item && item.id === floorId) || null;
+      this.uiFloorProxy = readonlyView(liveFloor);
+      let cached = this.uiContexts.get(mechanic.id);
+      if (cached) return cached;
+
+      const liveState = readonlyView(this.state);
+      const liveZoneState = readonlyView(this.zoneState);
+      const mechanics = readonlyView(this.zoneState.mechanicState || {});
+      const variables = readonlyView(this.zoneState.variables || {});
+      const zoneDefSnapshot = this.uiZoneDef || (this.uiZoneDef = buildUiZoneDef(this.zoneDef));
+      const runtime = this;
+      const ctx = {
+        game: this.mechanicGameView || buildMechanicGameView(this.state),
+        state: liveState,
         zoneId: this.zoneDef.id,
         zoneDef: zoneDefSnapshot,
-        zoneState: zoneState,
-        zone: zoneState,
-        floor,
-        floorId,
+        zoneState: liveZoneState,
+        zone: liveZoneState,
+        get floor() { return runtime.uiFloorProxy; },
+        get floorId() { return runtime.uiFloorId; },
         zoneVariables: variables,
-        mechanic,
+        mechanic: readonlyView(mechanic),
         mechanics,
-        mechanicStateFor: (id) => mechanics[id] || deepFreeze({}),
+        mechanicStateFor: (id) => readonlyView(this.zoneState.mechanicState && this.zoneState.mechanicState[id]) || EMPTY_READONLY_OBJECT,
         discoverSecret: () => false,
         rewardCash: () => false,
         emit: () => false,
         emitUI: () => false,
-        requirementValue: (req) => requirementValue(calcState, req, this.zoneDef.id),
-        requirementMet: (req) => requirementMet(calcState, req, this.zoneDef.id),
-        requirementsMet: (reqs) => requirementsMet(calcState, reqs, this.zoneDef.id),
-        machineUnlocked: (machineId) => isMachineUnlocked(calcState, machineId),
-        canPlaceMachine: (machineId, targetZoneId) => canPlaceMachineInZone(calcState, machineId, targetZoneId || this.zoneDef.id),
+        requirementValue: (req) => requirementValue(this.state, req, this.zoneDef.id),
+        requirementMet: (req) => requirementMet(this.state, req, this.zoneDef.id),
+        requirementsMet: (reqs) => requirementsMet(this.state, reqs, this.zoneDef.id),
+        machineUnlocked: (machineId) => isMachineUnlocked(this.state, machineId),
+        canPlaceMachine: (machineId, targetZoneId) => canPlaceMachineInZone(this.state, machineId, targetZoneId || this.zoneDef.id),
         mode: "ui",
-      });
+      };
+      Object.freeze(ctx);
+      this.uiContexts.set(mechanic.id, ctx);
+      return ctx;
     }
 
     context(mechanic, extra) {
@@ -3954,7 +4075,7 @@ window.Game.AudioContent = {
       delete input.slot;
       delete input.machine;
       return Object.assign({
-        game: buildMechanicGameView(this.state),
+        game: this.mechanicGameView,
         state: readonlyView(this.state),
         zoneId: this.zoneDef.id,
         zoneDef: readonlyView(this.zoneDef),
@@ -3994,12 +4115,35 @@ window.Game.AudioContent = {
       catch (error) { this.disable(instance.id, error); return undefined; }
     }
 
+    hotContext(instance, methodName, dynamic) {
+      let byMethod = this.hotContexts.get(instance);
+      if (!byMethod) { byMethod = new Map(); this.hotContexts.set(instance, byMethod); }
+      let ctx = byMethod.get(methodName);
+      if (!ctx) {
+        ctx = this.context(instance, { mode: dynamic.mode });
+        byMethod.set(methodName, ctx);
+      }
+      ctx.mode = dynamic.mode;
+      ctx.floor = readonlyView(dynamic.floor);
+      ctx.machine = readonlyView(dynamic.machine);
+      ctx.slot = readonlyView(dynamic.slot);
+      return ctx;
+    }
+
+    forEachHot(methodName, dynamic, fn) {
+      const list = this.hooks[methodName];
+      if (!Array.isArray(list)) return;
+      for (const instance of list) {
+        if (!instance || this.disabled.has(instance.id)) continue;
+        const ctx = this.hotContext(instance, methodName, dynamic);
+        try { fn(instance, ctx); } catch (error) { this.disable(instance.id, error); }
+      }
+    }
+
     callUi(instance, ctx) {
       if (!instance || this.disabled.has(instance.id)) return undefined;
       try {
-        const uiInstance = Object.create(Object.getPrototypeOf(instance));
-        Object.getOwnPropertyNames(instance).forEach((key) => { uiInstance[key] = instance[key]; });
-        Object.freeze(uiInstance);
+        const uiInstance = this.uiInstances.get(instance.id) || instance;
         return instance.getUIState.call(uiInstance, ctx);
       } catch (error) {
         console.error("Zone mechanic UI failed:", this.zoneDef.id, instance.id, error);
@@ -4007,7 +4151,16 @@ window.Game.AudioContent = {
       }
     }
 
-    forEach(fn, extra) {
+    forEach(fn, extra, methodName = null) {
+      if (methodName && Array.isArray(this.hooks[methodName])) {
+        const list = this.hooks[methodName];
+        for (const instance of list) {
+          if (!instance || this.disabled.has(instance.id)) continue;
+          const ctx = this.context(instance, extra);
+          try { fn(instance, ctx); } catch (error) { this.disable(instance.id, error); }
+        }
+        return;
+      }
       for (const def of this.defs()) {
         if (!def || def.enabled === false || this.disabled.has(def.id)) continue;
         const instance = this.instanceFor(def);
@@ -4441,24 +4594,28 @@ window.Game.AudioContent = {
   }
 
   // ---- Production hooks --------------------------------------------------
-  function beforeZoneTick(state, zone, dt, events) { if (zone) forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onBeforeZoneTick", Object.assign(c, { zone, dt, events, mode: "live" })), { events }); }
-  function afterZoneTick(state, zone, dt, events) { if (zone) forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onAfterZoneTick", Object.assign(c, { zone, dt, events, mode: "live" })), { events }); }
-  function beforeTick(state, zone, floor, dt, events) { if (zone && floor) forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onBeforeTick", Object.assign(c, { zone, floor, dt, events, mode: "live" })), { events }); }
+  function beforeZoneTick(state, zone, dt, events) { if (zone) { const runtime = getRuntime(state, zone.id); if (runtime) runtime.forEach((m, c) => runtime.call(m, "onBeforeZoneTick", Object.assign(c, { zone, dt, events, mode: "live" })), { events }, "onBeforeZoneTick"); } }
+  function afterZoneTick(state, zone, dt, events) { if (zone) { const runtime = getRuntime(state, zone.id); if (runtime) runtime.forEach((m, c) => runtime.call(m, "onAfterZoneTick", Object.assign(c, { zone, dt, events, mode: "live" })), { events }, "onAfterZoneTick"); } }
+  function beforeTick(state, zone, floor, dt, events) { if (zone && floor) { const runtime = getRuntime(state, zone.id); if (runtime) runtime.forEach((m, c) => runtime.call(m, "onBeforeTick", Object.assign(c, { zone, floor, dt, events, mode: "live" })), { events }, "onBeforeTick"); } }
 
   function beforeMachineCycle(state, zone, floor, machine, slot, events) {
     let working = true;
     if (!zone) return working;
-    forEachMechanic(state, zone.id, (m, c) => {
-      const result = getRuntime(state, zone.id)?.call(m, "onBeforeMachineCycle", Object.assign(c, { zone, floor, machine, slot, events, mode: "live" }));
+    const runtime = getRuntime(state, zone.id);
+    if (!runtime) return working;
+    runtime.forEach((m, c) => {
+      const result = runtime.call(m, "onBeforeMachineCycle", Object.assign(c, { zone, floor, machine, slot, events, mode: "live" }));
       if (result === false) working = false;
-    }, { events });
+    }, { events }, "onBeforeMachineCycle");
     return working;
   }
 
   function getProductionMultiplier(state, zoneId, floor, machine, slot, mode = "live") {
     let multiplier = 1;
-    forEachMechanic(state, zoneId, (m, c) => {
-      const result = getRuntime(state, zoneId)?.call(m, "modifyProduction", Object.assign(c, { floor, machine, slot: slot || null, mode }), [multiplier, machine]);
+    const runtime = getRuntime(state, zoneId);
+    if (!runtime) return multiplier;
+    runtime.forEachHot("modifyProduction", { floor, machine, slot: slot || null, mode }, (m, c) => {
+      const result = runtime.call(m, "modifyProduction", c, [multiplier, machine]);
       if (Number.isFinite(result)) multiplier = clampMultiplier(result, multiplier);
     });
     return multiplier;
@@ -4466,8 +4623,10 @@ window.Game.AudioContent = {
 
   function modifyCooldown(state, zoneId, floor, machine, cooldown, mode = "live") {
     let value = Number.isFinite(cooldown) ? cooldown : 1;
-    forEachMechanic(state, zoneId, (m, c) => {
-      const result = getRuntime(state, zoneId)?.call(m, "modifyCooldown", Object.assign(c, { floor, machine, mode }), [value, machine]);
+    const runtime = getRuntime(state, zoneId);
+    if (!runtime) return value;
+    runtime.forEachHot("modifyCooldown", { floor, machine, slot: undefined, mode }, (m, c) => {
+      const result = runtime.call(m, "modifyCooldown", c, [value, machine]);
       if (Number.isFinite(result)) value = Math.max(0.05, result);
     });
     return value;
@@ -4475,16 +4634,20 @@ window.Game.AudioContent = {
 
   function afterMachineCycle(state, zone, floor, machine, slot, result, events) {
     if (!zone) return;
-    forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onMachineCycle", Object.assign(c, { zone, floor, machine, slot, result, events, mode: "live" }), [result]), { events });
+    const runtime = getRuntime(state, zone.id);
+    if (!runtime) return;
+    runtime.forEach((m, c) => runtime.call(m, "onMachineCycle", Object.assign(c, { zone, floor, machine, slot, result, events, mode: "live" }), [result]), { events }, "onMachineCycle");
   }
   function onMachinePlaced(state, zoneId, floor, machine, slot, events) {
-    forEachMechanic(state, zoneId, (m, c) => getRuntime(state, zoneId)?.call(m, "onMachinePlaced", Object.assign(c, { floor, machine, slot, events, mode: "live" })), { events });
+    const runtime = getRuntime(state, zoneId);
+    if (runtime) runtime.forEach((m, c) => runtime.call(m, "onMachinePlaced", Object.assign(c, { floor, machine, slot, events, mode: "live" })), { events }, "onMachinePlaced");
   }
   function onMachineCollected(state, zoneId, floor, machine, slot, amount, events, automatic = false) {
-    forEachMechanic(state, zoneId, (m, c) => getRuntime(state, zoneId)?.call(m, "onMachineCollected", Object.assign(c, { floor, machine, slot: slot || null, amount, automatic: !!automatic, events, mode: "live" }), [amount]), { events });
+    const runtime = getRuntime(state, zoneId);
+    if (runtime) runtime.forEach((m, c) => runtime.call(m, "onMachineCollected", Object.assign(c, { floor, machine, slot: slot || null, amount, automatic: !!automatic, events, mode: "live" }), [amount]), { events }, "onMachineCollected");
   }
   function afterTick(state, zone, floor, dt, events) {
-    if (zone && floor) forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onAfterTick", Object.assign(c, { zone, floor, dt, events, mode: "live" })), { events });
+    if (zone && floor) { const runtime = getRuntime(state, zone.id); if (runtime) runtime.forEach((m, c) => runtime.call(m, "onAfterTick", Object.assign(c, { zone, floor, dt, events, mode: "live" })), { events }, "onAfterTick"); }
   }
 
   function dispatchEvents(state, events) {
@@ -4497,7 +4660,8 @@ window.Game.AudioContent = {
       processed++;
       const zone = getZoneState(state, event.zoneId);
       if (!zone || !zone.unlocked) continue;
-      forEachMechanic(state, event.zoneId, (m, c) => getRuntime(state, event.zoneId)?.call(m, "onGameEvent", Object.assign(c, { event, events, mode: "live" }), [event]), { events });
+      const runtime = getRuntime(state, event.zoneId);
+      if (runtime) runtime.forEach((m, c) => runtime.call(m, "onGameEvent", Object.assign(c, { event, events, mode: "live" }), [event]), { events }, "onGameEvent");
     }
   }
 
@@ -4609,7 +4773,8 @@ window.Game.AudioContent = {
     ensureZoneContainers(zoneState, zoneDef);
     // Let mechanics update their own persistent conditions first. Generic
     // secret/mechanic discovery then observes the resulting state in the same tick.
-    forEachMechanic(state, zoneId, (m, c) => getRuntime(state, zoneId)?.call(m, "onCheckSecrets", Object.assign(c, { events, mode: "live" })), { events });
+    const runtime = getRuntime(state, zoneId);
+    if (runtime) runtime.forEach((m, c) => runtime.call(m, "onCheckSecrets", Object.assign(c, { events, mode: "live" })), { events }, "onCheckSecrets");
     (zoneDef.secrets || []).forEach((secret) => {
       if (!secret || zoneState.secrets.includes(secret.id)) return;
       const reqs = secret.discovery && secret.discovery.requirements;
@@ -4637,8 +4802,8 @@ window.Game.AudioContent = {
     const floor = (zoneState.floors || []).find((item) => item && item.id === floorId) || null;
     const runtime = getRuntime(state, zoneId);
     if (!runtime) return out;
-    const uiSnapshot = buildUiStateSnapshot(state);
-    const calculationState = uiSnapshot;
+    const uiSnapshot = null;
+    const calculationState = state;
     for (const def of runtime.defs()) {
       if (!def || def.enabled === false || !isMechanicUiVisible(zoneDef, zoneState, def.id)) continue;
       const mechanic = runtime.instances.get(def.id);
@@ -4758,6 +4923,8 @@ window.Game.AudioContent = {
 
   const WATER_MECHANIC_ID = "ocean_water_exposure";
   const MACHINE_MECHANIC_ID = "ocean_machine_systems";
+  const machineDefCache = new WeakMap();
+  const slotKeyCache = new WeakMap();
 
   function finiteNumber(value, fallback) {
     return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -4780,23 +4947,34 @@ window.Game.AudioContent = {
   }
 
   function machineDef(ctx, machine) {
-    return ctx && ctx.game && ctx.game.DATA && typeof ctx.game.DATA.machineById === "function"
-      ? ctx.game.DATA.machineById(machine && machine.typeId)
+    if (!machine || typeof machine !== "object") return null;
+    const cached = machineDefCache.get(machine);
+    if (cached && cached.typeId === machine.typeId) return cached.def;
+    const def = ctx && ctx.game && ctx.game.DATA && typeof ctx.game.DATA.machineById === "function"
+      ? ctx.game.DATA.machineById(machine.typeId)
       : null;
+    machineDefCache.set(machine, { typeId: machine.typeId, def: def || null });
+    return def || null;
   }
 
   function slotKey(floor, slot) {
     if (!floor || !slot) return null;
-    return `f${String(floor.id).replace(/[^A-Za-z0-9_$-]/g, "_")}_r${Number(slot.r) || 0}c${Number(slot.c) || 0}`;
+    const cached = slotKeyCache.get(slot);
+    if (cached && cached.floorId === floor.id && cached.r === slot.r && cached.c === slot.c) return cached.key;
+    const key = `f${String(floor.id).replace(/[^A-Za-z0-9_$-]/g, "_")}_r${Number(slot.r) || 0}c${Number(slot.c) || 0}`;
+    slotKeyCache.set(slot, { floorId: floor.id, r: slot.r, c: slot.c, key });
+    return key;
   }
 
   function stateRecord(ctx, floor, slot) {
     const key = slotKey(floor, slot);
     if (!key) return null;
-    const existingRoot = ctx && ctx.mechanics && ctx.mechanics[ctx.mechanic.id];
-    const existing = existingRoot && existingRoot.machines && existingRoot.machines[key];
-    if (existing && typeof existing === "object" && !Array.isArray(existing)) return existing;
-    if (ctx && (ctx.mode === "query" || ctx.mode === "ui")) return null;
+    if (ctx && (ctx.mode === "query" || ctx.mode === "ui")) {
+      const existingRoot = ctx.mechanics && ctx.mechanics[ctx.mechanic.id];
+      const existing = existingRoot && existingRoot.machines && existingRoot.machines[key];
+      return existing && typeof existing === "object" && !Array.isArray(existing) ? existing : null;
+    }
+    // Live hooks must mutate the real mechanic state, never the read-only view.
     const root = ctx.mechanicStateFor(ctx.mechanic.id);
     if (!root.machines || typeof root.machines !== "object" || Array.isArray(root.machines)) root.machines = {};
     if (!root.machines[key] || typeof root.machines[key] !== "object" || Array.isArray(root.machines[key])) {
@@ -5079,6 +5257,23 @@ window.Game.AudioContent = {
   }
 
   class OceanStrandedFish extends G.Zone.ZoneMechanic {
+    constructor(def) {
+      super(def);
+      this._speciesById = new Map();
+      this._weightedSpecies = [];
+      this._speciesWeightTotal = 0;
+      const species = Array.isArray(this.config.species) ? this.config.species : [];
+      for (const item of species) {
+        if (!item || !item.id) continue;
+        this._speciesById.set(item.id, item);
+        const weight = Number(item.weight);
+        if (weight > 0) {
+          this._weightedSpecies.push(item);
+          this._speciesWeightTotal += weight;
+        }
+      }
+    }
+
     isDiscovered(ctx) {
       const discoveries = ctx && ctx.zoneState && Array.isArray(ctx.zoneState.mechanicDiscoveries)
         ? ctx.zoneState.mechanicDiscoveries : [];
@@ -5090,14 +5285,17 @@ window.Game.AudioContent = {
     }
 
     speciesById(id) {
-      return this.speciesList().find((species) => species && species.id === id) || null;
+      return this._speciesById.get(id) || null;
     }
 
     stateRoot(ctx) {
       const source = ctx && ctx.mechanics ? ctx.mechanics[this.id] : null;
-      const root = ctx && (ctx.mode === "query" || ctx.mode === "ui")
-        ? cloneJson(source || {})
-        : ctx.mechanicStateFor(this.id);
+      if (ctx && (ctx.mode === "query" || ctx.mode === "ui")) {
+        // UI/query paths are read-only. Avoid cloning the whole fish-state tree
+        // every frame; the Core already provides a read-only view at this boundary.
+        return source && typeof source === "object" ? source : Object.freeze({ machines: {} });
+      }
+      const root = ctx.mechanicStateFor(this.id);
       if (!root.machines || typeof root.machines !== "object" || Array.isArray(root.machines)) root.machines = {};
       root.clock = Math.max(0, finiteNumber(root.clock, 0));
       root.fishCaught = Math.max(0, Math.floor(finiteNumber(root.fishCaught, 0)));
@@ -5118,8 +5316,8 @@ window.Game.AudioContent = {
     }
 
     pickSpecies() {
-      const species = this.speciesList().filter((item) => item && Number(item.weight) > 0);
-      const total = species.reduce((sum, item) => sum + Number(item.weight || 0), 0);
+      const species = this._weightedSpecies;
+      const total = this._speciesWeightTotal;
       if (!species.length || total <= 0) return null;
       let roll = Math.random() * total;
       for (const item of species) {
@@ -5321,6 +5519,13 @@ window.Game.AudioContent = {
   let activeBehavior = null;
   let activeZoneSnapshot = null;
   let activeDefSnapshot = null;
+  let cachedUpdateStateView = null;
+  let cachedUpdateState = null;
+  let cachedUpdateZoneId = null;
+  let cachedUpdateViewAt = -Infinity;
+  let updateContext = null;
+  let updateContextDt = 0;
+  let updateContextState = null;
 
   function isPlainObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
   function sanitizeClassName(value, fallback) { return typeof value === "string" && /^[A-Za-z0-9_-]+$/.test(value) ? value : fallback; }
@@ -5404,9 +5609,20 @@ window.Game.AudioContent = {
     return deepFreeze(view);
   }
 
-  function context(state, extra) {
+  function getCachedUpdateStateView(state) {
+    const now = performance.now();
+    if (!cachedUpdateStateView || cachedUpdateState !== state || cachedUpdateZoneId !== activeZoneId || now - cachedUpdateViewAt >= 100) {
+      cachedUpdateStateView = buildStateView(state, activeZoneId);
+      cachedUpdateState = state;
+      cachedUpdateZoneId = activeZoneId;
+      cachedUpdateViewAt = now;
+    }
+    return cachedUpdateStateView;
+  }
+
+  function context(state, extra, cacheStateView) {
     return Object.assign({
-      stateView: buildStateView(state, activeZoneId),
+      stateView: cacheStateView ? getCachedUpdateStateView(state) : buildStateView(state, activeZoneId),
       zoneId: activeZoneId,
       zoneDef: activeZoneSnapshot,
       element: root,
@@ -5420,6 +5636,11 @@ window.Game.AudioContent = {
     activeBehavior = null;
     activeZoneSnapshot = null;
     activeDefSnapshot = null;
+    cachedUpdateStateView = null;
+    updateContext = null;
+    updateContextState = null;
+    cachedUpdateState = null;
+    cachedUpdateZoneId = null;
   }
 
   function sync(state) {
@@ -5455,8 +5676,20 @@ window.Game.AudioContent = {
 
   function update(state, dt) {
     if (!activeBehavior) return;
-    try { activeBehavior.update(context(state, { dt: Math.max(0, Number(dt) || 0) })); }
-    catch (error) { console.error("Background behavior disabled:", activeZoneId, error); activeBehavior = null; }
+    updateContextState = state;
+    updateContextDt = Math.max(0, Number(dt) || 0);
+    if (!updateContext) {
+      updateContext = Object.freeze({
+        get stateView() { return getCachedUpdateStateView(updateContextState); },
+        zoneId: activeZoneId,
+        zoneDef: activeZoneSnapshot,
+        element: root,
+        config: activeDefSnapshot && isPlainObject(activeDefSnapshot.config) ? activeDefSnapshot.config : {},
+        get dt() { return updateContextDt; },
+      });
+    }
+    try { activeBehavior.update(updateContext); }
+    catch (error) { console.error("Background behavior disabled:", activeZoneId, error); activeBehavior = null; updateContext = null; updateContextState = null; }
   }
 
   function pointer(method, state, x, y, pointerType) {
@@ -5519,6 +5752,8 @@ window.Game.AudioContent = {
       this.rootLayers = [];
       this.pointer = { x: 0.5, y: 0.24 };
       this.lastVisualUpdate = -Infinity;
+      this.lastActivity = null;
+      this.lastPointerKey = "";
       this.build();
       this.updateActivity(ctx);
     }
@@ -5625,7 +5860,10 @@ window.Game.AudioContent = {
       const zone = stateView && stateView.zone ? stateView.zone : null;
       const capacity = Math.max(1, finite(zone && zone.gridCapacity, 24));
       const machines = clamp(finite(zone && zone.occupiedMachineCount, 0) / capacity, 0, 1);
-      setVar(this.element, "--ocean-activity", machines.toFixed(3));
+      const value = machines.toFixed(3);
+      if (value === this.lastActivity) return;
+      this.lastActivity = value;
+      setVar(this.element, "--ocean-activity", value);
     }
 
     update(ctx) {
@@ -5636,8 +5874,13 @@ window.Game.AudioContent = {
       this.lastVisualUpdate = now;
       const px = this.pointer.x * 100;
       const py = this.pointer.y * 100;
-      setVar(this.element, "--ocean-pointer-x", px.toFixed(2) + "%");
-      setVar(this.element, "--ocean-pointer-y", py.toFixed(2) + "%");
+      const pxText = px.toFixed(2);
+      const pyText = py.toFixed(2);
+      const pointerKey = pxText + ":" + pyText;
+      if (pointerKey === this.lastPointerKey) return;
+      this.lastPointerKey = pointerKey;
+      setVar(this.element, "--ocean-pointer-x", pxText + "%");
+      setVar(this.element, "--ocean-pointer-y", pyText + "%");
       const tilt = ((px - 50) * 0.018).toFixed(3);
       this.rootLayers.forEach((layer, index) => {
         if (!layer || index === 5) return;
@@ -5650,8 +5893,11 @@ window.Game.AudioContent = {
       if (!ctx) return;
       const width = Math.max(1, window.innerWidth || 1);
       const height = Math.max(1, window.innerHeight || 1);
-      this.pointer.x = clamp(finite(ctx.x, width * 0.5) / width, 0, 1);
-      this.pointer.y = clamp(finite(ctx.y, height * 0.24) / height, 0, 1);
+      const nextX = clamp(finite(ctx.x, width * 0.5) / width, 0, 1);
+      const nextY = clamp(finite(ctx.y, height * 0.24) / height, 0, 1);
+      if (nextX === this.pointer.x && nextY === this.pointer.y) return;
+      this.pointer.x = nextX;
+      this.pointer.y = nextY;
     }
   }
 
@@ -5675,6 +5921,10 @@ window.Game.AudioContent = {
   // Floor ids are only required to be unique inside a Zone, so floor id alone
   // is not a safe runtime key once multiple Zones exist.
   const floorRuntime = {}; // { [zoneId + "::" + floorId]: { collectorTimer, bonusTimer } }
+  // Reused because tick() is strictly synchronous: Core dispatch and Main event
+  // processing finish before the next tick starts. This removes one array allocation
+  // per animation frame without changing the event contract.
+  const tickEvents = [];
   function rt(zoneId, floorId) {
     const key = String(zoneId) + "::" + String(floorId);
     if (!floorRuntime[key]) floorRuntime[key] = { collectorTimer: 0, bonusTimer: 3 + Math.random() * 6 };
@@ -5854,20 +6104,34 @@ window.Game.AudioContent = {
     const outMult = E.floorOutputMult(floor);
     const hasCollector = floor.systems.collector > 0;
     const r = rt(zone.id, floor.id);
+    const eff = E.techEffects(state);
+    const speedPerLevel = D.UPGRADES.speed.effectPerLevel;
+    const outputPerLevel = D.UPGRADES.output.effectPerLevel;
+    const inkPerLevel = D.UPGRADES.ink.effectPerLevel;
 
     G.Zone.beforeTick(state, zone, floor, dt, events);
-    floor.grid.forEach((slot) => {
+    const grid = floor.grid;
+    for (let i = 0; i < grid.length; i++) {
+      const slot = grid[i];
       const m = slot.machine;
-      if (!m) return;
-      const baseCooldown = E.machineCooldown(m, state);
+      if (!m) continue;
+      const def = E.machineDefinition(m);
+      const speedLvl = Number(m.levels && m.levels.speed) || 0;
+      const base = def && Number.isFinite(def.baseCooldown) ? def.baseCooldown : 1;
+      const reduction = 1 - Math.min(0.75, speedPerLevel * speedLvl + eff.globalSpeedMult);
+      const baseCooldown = Math.max(0.15, base * reduction);
       const cooldown = G.Zone.modifyCooldown(state, zone.id, floor, m, baseCooldown);
       m.progress += dt / cooldown;
       while (m.progress >= 1) {
         m.progress -= 1;
         if (!G.Zone.beforeMachineCycle(state, zone, floor, m, slot, events)) continue;
-        let yieldAmt = E.machineBaseYield(m, outMult, state);
-        let isCrit = Math.random() < E.machineCritChance(m, state);
-        if (isCrit) yieldAmt *= E.machineCritMult(m);
+        const outputLvl = Number(m.levels && m.levels.output) || 0;
+        const outputMult = 1 + outputPerLevel * outputLvl + eff.globalOutputMult;
+        let yieldAmt = def ? def.baseYield * outputMult * outMult : 0;
+        const inkLvl = Number(m.levels && m.levels.ink) || 0;
+        const critChance = def ? Math.min(0.6, def.critChance + inkPerLevel * inkLvl + eff.critChanceAdd) : 0;
+        const isCrit = Math.random() < critChance;
+        if (isCrit) yieldAmt *= def ? (def.critMult + 0.15 * inkLvl) : 1;
         const zoneMultiplier = G.Zone.getProductionMultiplier(state, zone.id, floor, m, slot);
         yieldAmt *= zoneMultiplier;
         const result = { amount: yieldAmt, crit: isCrit };
@@ -5877,7 +6141,7 @@ window.Game.AudioContent = {
         if (events) events.push({ type: "cycle", zoneId: zone.id, floorId: floor.id, r: slot.r, c: slot.c, amount: yieldAmt, crit: isCrit });
         G.Zone.afterMachineCycle(state, zone, floor, m, slot, result, events);
       }
-    });
+    }
 
     if (hasCollector) {
       const tickSec = E.collectorTickSeconds(floor, state);
@@ -5904,20 +6168,25 @@ window.Game.AudioContent = {
 
 
   function tick(state, dt) {
-    const events = [];
-    state.zones.forEach((zone) => {
-      if (!zone.unlocked) return;
+    const events = tickEvents;
+    events.length = 0;
+    const zones = state.zones;
+    for (let zi = 0; zi < zones.length; zi++) {
+      const zone = zones[zi];
+      if (!zone.unlocked) continue;
       G.Zone.beforeZoneTick(state, zone, dt, events);
       let zoneHadUnlockedFloor = false;
-      zone.floors.forEach((floor) => {
-        if (!floor.unlocked) return;
+      const floors = zone.floors;
+      for (let fi = 0; fi < floors.length; fi++) {
+        const floor = floors[fi];
+        if (!floor.unlocked) continue;
         zoneHadUnlockedFloor = true;
         tickFloor(state, zone, floor, dt, events);
         G.Zone.afterTick(state, zone, floor, dt, events);
-      });
+      }
       if (zoneHadUnlockedFloor) zone.stats.playTimeSeconds = (zone.stats.playTimeSeconds || 0) + dt;
       G.Zone.afterZoneTick(state, zone, dt, events);
-    });
+    }
     // Resolve discoveries after gameplay state changes but before dispatch so
     // mechanic-emitted discovery/events can participate in the same bounded
     // event chain during this tick.
@@ -5959,6 +6228,7 @@ window.Game.AudioContent = {
     state.skills.points -= tech.cost;
     state.research -= tech.researchCost;
     state.skills.tech[techId] = true;
+    if (E.invalidateTechEffects) E.invalidateTechEffects(state);
     return { ok: true };
   }
 
@@ -6545,9 +6815,22 @@ window.Game.AudioContent = {
 
   let canvas, ctx, dpr = 1;
   let camera = { x: 0, y: 0, zoom: 1 };
+  let screenCenterX = 0, screenCenterY = 0, inverseZoom = 1;
   let hoverSlot = null;
   let selectedSlot = null;
   let timeAcc = 0;
+  let floorCacheCanvas = null;
+  let floorCacheCtx = null;
+  let floorCacheKey = "";
+  const machineCache = new Map();
+  const tierCache = new Map();
+  const shadeCache = new Map();
+  const hexAlphaCache = new Map();
+  const gearPathCache = new Map();
+  const slotPositionCache = new Array(D.GRID_ROWS * D.GRID_COLS);
+  const cashTextCache = new WeakMap();
+  const renderStatusMap = new Map();
+  let bonusStarPath = null;
 
   // ---- Object pools ---------------------------------------------------------
   const MAX_PARTICLES = 220;
@@ -6574,7 +6857,7 @@ window.Game.AudioContent = {
 
   function init(canvasEl) {
     canvas = canvasEl;
-    ctx = canvas.getContext("2d");
+    ctx = canvas.getContext("2d", { alpha: true, desynchronized: true }) || canvas.getContext("2d");
     resize();
   }
 
@@ -6586,28 +6869,30 @@ window.Game.AudioContent = {
     canvas.height = Math.max(1, Math.floor(rect.height * dpr));
     canvas.style.width = rect.width + "px";
     canvas.style.height = rect.height + "px";
+    screenCenterX = rect.width / 2;
+    screenCenterY = rect.height / 2;
+    inverseZoom = 1 / Math.max(0.000001, Number(camera.zoom) || 1);
+    floorCacheKey = "";
   }
 
-  function setCamera(c) { camera = c; }
+  function setCamera(c) {
+    camera = c || camera;
+    inverseZoom = 1 / Math.max(0.000001, Number(camera.zoom) || 1);
+    floorCacheKey = "";
+  }
   function setHover(slot) { hoverSlot = slot; }
   function setSelected(slot) { selectedSlot = slot; }
 
   function worldToScreen(wx, wy) {
-    const rect = canvas;
-    const cx = rect.width / 2 / dpr;
-    const cy = rect.height / 2 / dpr;
     return {
-      x: cx + (wx - camera.x) * camera.zoom,
-      y: cy + (wy - camera.y) * camera.zoom,
+      x: screenCenterX + (wx - camera.x) * camera.zoom,
+      y: screenCenterY + (wy - camera.y) * camera.zoom,
     };
   }
   function screenToWorld(sx, sy) {
-    const rect = canvas;
-    const cx = rect.width / 2 / dpr;
-    const cy = rect.height / 2 / dpr;
     return {
-      x: camera.x + (sx - cx) / camera.zoom,
-      y: camera.y + (sy - cy) / camera.zoom,
+      x: camera.x + (sx - screenCenterX) * inverseZoom,
+      y: camera.y + (sy - screenCenterY) * inverseZoom,
     };
   }
 
@@ -6617,6 +6902,16 @@ window.Game.AudioContent = {
   }
 
   function slotWorldPos(r, c) {
+    const index = r * D.GRID_COLS + c;
+    if (index >= 0 && index < slotPositionCache.length) {
+      let cached = slotPositionCache[index];
+      if (!cached) {
+        const b = gridWorldBounds();
+        cached = { x: b.x0 + c * CELL + CELL / 2, y: b.y0 + r * CELL + CELL / 2 };
+        slotPositionCache[index] = cached;
+      }
+      return cached;
+    }
     const b = gridWorldBounds();
     return { x: b.x0 + c * CELL + CELL / 2, y: b.y0 + r * CELL + CELL / 2 };
   }
@@ -6645,32 +6940,39 @@ window.Game.AudioContent = {
     ctx.closePath();
   }
 
-  function drawGear(cx, cy, radius, teeth, rotation, color) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(rotation);
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    const inner = radius * 0.62;
-    const toothH = radius * 0.34;
+  function gearPath(teeth) {
+    const key = String(teeth);
+    if (gearPathCache.has(key)) return gearPathCache.get(key);
+    const path = new Path2D();
+    const toothH = 0.34;
     for (let i = 0; i < teeth; i++) {
       const a0 = (i / teeth) * Math.PI * 2;
       const a1 = a0 + (Math.PI * 2) / teeth / 2;
       const a2 = a0 + (Math.PI * 2) / teeth;
-      ctx.lineTo(Math.cos(a0) * radius, Math.sin(a0) * radius);
-      ctx.lineTo(Math.cos(a1) * (radius + toothH), Math.sin(a1) * (radius + toothH));
-      ctx.lineTo(Math.cos(a2) * radius, Math.sin(a2) * radius);
+      path.lineTo(Math.cos(a0), Math.sin(a0));
+      path.lineTo(Math.cos(a1) * (1 + toothH), Math.sin(a1) * (1 + toothH));
+      path.lineTo(Math.cos(a2), Math.sin(a2));
     }
-    ctx.closePath();
-    ctx.fill();
+    path.closePath();
+    gearPathCache.set(key, path);
+    return path;
+  }
+
+  function drawGear(cx, cy, radius, teeth, rotation, color) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.scale(radius, radius);
+    ctx.fillStyle = color;
+    ctx.fill(gearPath(teeth));
     ctx.beginPath();
-    ctx.arc(0, 0, inner, 0, Math.PI * 2);
+    ctx.arc(0, 0, 0.62, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0,0,0,0.25)";
     ctx.fill();
     ctx.restore();
   }
 
-  function drawFloorBackground(floor, zoneDef) {
+  function drawFloorBackground(floor, zoneDef, includeConveyor = true) {
     const theme = zoneDef && zoneDef.theme ? zoneDef.theme : {};
     const b = gridWorldBounds();
     const tl = worldToScreen(b.x0 - CELL * 0.6, b.y0 - CELL * 0.6);
@@ -6697,7 +6999,7 @@ window.Game.AudioContent = {
     }
 
     // conveyor belts along each row if floor has conveyor level
-    if (floor.systems.conveyor > 0) {
+    if (includeConveyor && floor.systems.conveyor > 0) {
       for (let r = 0; r < D.GRID_ROWS; r++) {
         const left = slotWorldPos(r, 0);
         const right = slotWorldPos(r, D.GRID_COLS - 1);
@@ -6842,10 +7144,18 @@ window.Game.AudioContent = {
     ctx.restore();
   }
 
+  function getDataCached(map, id, getter) {
+    if (!id) return null;
+    if (map.has(id)) return map.get(id);
+    const value = getter(id);
+    map.set(id, value || null);
+    return value || null;
+  }
+
   function drawMachine(slot, isHover, isSelected, mechanicStatus) {
     const m = slot.machine;
-    const machine = D.machineById(m.typeId);
-    const tier = D.tierById(m.tierId) || { order: 0, color: "#9aa5ad", glow: "#c7cfd4", particleDensity: 0.5, id: "common" };
+    const machine = getDataCached(machineCache, m.typeId, D.machineById);
+    const tier = getDataCached(tierCache, m.tierId, D.tierById) || { order: 0, color: "#9aa5ad", glow: "#c7cfd4", particleDensity: 0.5, id: "common" };
     const visual = machine || tier;
     const p = slotWorldPos(slot.r, slot.c);
     const s = worldToScreen(p.x, p.y);
@@ -7010,7 +7320,12 @@ window.Game.AudioContent = {
       ctx.fillStyle = "#ffe27a";
       ctx.font = `bold ${12 * camera.zoom}px sans-serif`;
       ctx.textAlign = "center";
-      ctx.fillText(E.formatMoney(m.banked), bcx, bcy - 18 * camera.zoom);
+      let cashText = cashTextCache.get(m);
+      if (!cashText || cashText.value !== m.banked) {
+        cashText = { value: m.banked, text: E.formatMoney(m.banked) };
+        cashTextCache.set(m, cashText);
+      }
+      ctx.fillText(cashText.text, bcx, bcy - 18 * camera.zoom);
     }
 
     // idle smoke puffs from higher tier machines
@@ -7037,22 +7352,31 @@ window.Game.AudioContent = {
   }
 
   function shade(hex, percent) {
-    const num = parseInt(hex.replace("#", ""), 16);
+    const cacheKey = String(hex) + ":" + String(percent);
+    if (shadeCache.has(cacheKey)) return shadeCache.get(cacheKey);
+    const num = parseInt(String(hex).replace("#", ""), 16);
     let r = (num >> 16) + Math.round((percent / 100) * 255);
     let g = ((num >> 8) & 0x00ff) + Math.round((percent / 100) * 255);
     let b = (num & 0x0000ff) + Math.round((percent / 100) * 255);
     r = Math.max(0, Math.min(255, r));
     g = Math.max(0, Math.min(255, g));
     b = Math.max(0, Math.min(255, b));
-    return `rgb(${r},${g},${b})`;
+    const out = `rgb(${r},${g},${b})`;
+    shadeCache.set(cacheKey, out);
+    return out;
   }
   function hexAlpha(hex, a) {
-    const num = parseInt(hex.replace("#", ""), 16);
+    const cacheKey = String(hex) + ":" + String(a);
+    if (hexAlphaCache.has(cacheKey)) return hexAlphaCache.get(cacheKey);
+    const num = parseInt(String(hex).replace("#", ""), 16);
     const r = num >> 16, g = (num >> 8) & 0x00ff, b = num & 0x0000ff;
-    return `rgba(${r},${g},${b},${a})`;
+    const out = `rgba(${r},${g},${b},${a})`;
+    hexAlphaCache.set(cacheKey, out);
+    return out;
   }
 
   function updateAndDrawParticles(dt) {
+    ctx.save();
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       if (!p.active) continue;
@@ -7061,17 +7385,17 @@ window.Game.AudioContent = {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       const t = p.age / p.life;
-      ctx.save();
       ctx.globalAlpha = (1 - t) * 0.7;
       ctx.fillStyle = p.color || "rgba(255,255,255,0.3)";
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * (1 + t * 0.8), 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
     }
+    ctx.restore();
   }
 
   function updateAndDrawFloaters(dt) {
+    ctx.save();
     for (let i = 0; i < floaters.length; i++) {
       const f = floaters[i];
       if (!f.active) continue;
@@ -7079,7 +7403,6 @@ window.Game.AudioContent = {
       if (f.age >= f.life) { f.active = false; continue; }
       const t = f.age / f.life;
       const y = f.y - t * 46 * camera.zoom;
-      ctx.save();
       ctx.globalAlpha = 1 - t;
       ctx.font = `bold ${(f.crit ? 20 : 15) * camera.zoom}px sans-serif`;
       ctx.textAlign = "center";
@@ -7088,8 +7411,8 @@ window.Game.AudioContent = {
       ctx.lineWidth = 3;
       ctx.strokeText(f.text, f.x, y);
       ctx.fillText(f.text, f.x, y);
-      ctx.restore();
     }
+    ctx.restore();
   }
 
   function spawnCollectFloater(worldX, worldY, amount, crit) {
@@ -7101,36 +7424,92 @@ window.Game.AudioContent = {
     spawnFloater({ x: s.x, y: s.y - 30, text: "\u2726 Bonus!", life: 1.6, crit: true, color: "#ff5da2" });
   }
 
+  function ensureBonusStarPath() {
+    if (bonusStarPath) return bonusStarPath;
+    const spikes = 5, innerRatio = 6 / 14;
+    let rot = (Math.PI / 2) * 3;
+    const step = Math.PI / spikes;
+    const path = new Path2D();
+    path.moveTo(0, -1);
+    for (let i = 0; i < spikes; i++) {
+      let x = Math.cos(rot), y = Math.sin(rot);
+      path.lineTo(x, y); rot += step;
+      x = Math.cos(rot) * innerRatio; y = Math.sin(rot) * innerRatio;
+      path.lineTo(x, y); rot += step;
+    }
+    path.lineTo(0, -1);
+    path.closePath();
+    bonusStarPath = path;
+    return bonusStarPath;
+  }
+
   function drawBonusMarker(slot) {
     const p = slotWorldPos(slot.r, slot.c);
     const s = worldToScreen(p.x, p.y - CELL * 0.42);
     const bob = Math.sin(timeAcc * 4) * 4 * camera.zoom;
+    const rotation = Math.sin(timeAcc * 3) * 0.2;
+    const outerR = 14 * camera.zoom;
     ctx.save();
     ctx.translate(s.x, s.y + bob);
-    ctx.rotate(Math.sin(timeAcc * 3) * 0.2);
+    ctx.rotate(rotation);
+    ctx.scale(outerR, outerR);
     ctx.fillStyle = "#ff5da2";
-    ctx.beginPath();
-    star(0, 0, 5, 14 * camera.zoom, 6 * camera.zoom);
-    ctx.fill();
+    ctx.fill(ensureBonusStarPath());
     ctx.strokeStyle = "#ffd3ea";
-    ctx.lineWidth = 2;
-    star(0, 0, 5, 14 * camera.zoom, 6 * camera.zoom);
-    ctx.stroke();
+    ctx.lineWidth = 2 / outerR;
+    ctx.stroke(ensureBonusStarPath());
     ctx.restore();
   }
-  function star(cx, cy, spikes, outerR, innerR) {
-    let rot = (Math.PI / 2) * 3;
-    const step = Math.PI / spikes;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - outerR);
-    for (let i = 0; i < spikes; i++) {
-      let x = cx + Math.cos(rot) * outerR, y = cy + Math.sin(rot) * outerR;
-      ctx.lineTo(x, y); rot += step;
-      x = cx + Math.cos(rot) * innerR; y = cy + Math.sin(rot) * innerR;
-      ctx.lineTo(x, y); rot += step;
+
+  function floorBackgroundKey(state, floor, zoneDef) {
+    if (!floor || !zoneDef) return "";
+    return [
+      state.currentZoneId, floor.id,
+      camera.x, camera.y, camera.zoom,
+      canvas.width, canvas.height, dpr,
+    ].join("|");
+  }
+
+  function ensureFloorCache() {
+    const w = Math.max(1, canvas.width);
+    const h = Math.max(1, canvas.height);
+    if (!floorCacheCanvas) {
+      floorCacheCanvas = document.createElement("canvas");
+      floorCacheCtx = floorCacheCanvas.getContext("2d");
     }
-    ctx.lineTo(cx, cy - outerR);
-    ctx.closePath();
+    if (floorCacheCanvas.width !== w || floorCacheCanvas.height !== h) {
+      floorCacheCanvas.width = w;
+      floorCacheCanvas.height = h;
+      floorCacheKey = "";
+    }
+    return floorCacheCtx;
+  }
+
+  function drawCachedFloorBackground(floor, zoneDef, key) {
+    const cacheCtx = ensureFloorCache();
+    if (!cacheCtx) {
+      drawFloorBackground(floor, zoneDef, true);
+      return;
+    }
+    if (floorCacheKey !== key) {
+      const mainCtx = ctx;
+      ctx = floorCacheCtx;
+      floorCacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawFloorBackground(floor, zoneDef, false);
+      ctx = mainCtx;
+      floorCacheKey = key;
+    }
+    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+    ctx.drawImage(floorCacheCanvas, 0, 0, canvas.width / dpr, canvas.height / dpr);
+    if (floor.systems.conveyor > 0) {
+      for (let r = 0; r < D.GRID_ROWS; r++) {
+        const left = slotWorldPos(r, 0);
+        const right = slotWorldPos(r, D.GRID_COLS - 1);
+        const sL = worldToScreen(left.x - CELL / 2, left.y + CELL * 0.34);
+        const sR = worldToScreen(right.x + CELL / 2, right.y + CELL * 0.44);
+        drawConveyorStrip(sL.x, sL.y, sR.x - sL.x, (sR.y - sL.y) + 14 * camera.zoom, floor.systems.conveyor);
+      }
+    }
   }
 
   // ---- Main frame render -------------------------------------------------------
@@ -7141,16 +7520,18 @@ window.Game.AudioContent = {
     ctx.scale(dpr, dpr);
 
     const zoneDef = D.zoneById(state.currentZoneId);
-    drawFloorBackground(floor, zoneDef);
+    drawCachedFloorBackground(floor, zoneDef, floorBackgroundKey(state, floor, zoneDef));
 
-    const statusMap = new Map();
+    const statusMap = renderStatusMap;
+    statusMap.clear();
     ((mechanicUi && mechanicUi.machineStatuses) || []).forEach((status) => {
       const key = status.floorId + ":" + status.r + ":" + status.c;
       const existing = statusMap.get(key);
       if (!existing || (status.priority || 0) >= (existing.priority || 0)) statusMap.set(key, status);
     });
 
-    floor.grid.forEach((slot) => {
+    for (let i = 0; i < floor.grid.length; i++) {
+      const slot = floor.grid[i];
       const isHover = hoverSlot && hoverSlot.r === slot.r && hoverSlot.c === slot.c;
       const isSelected = selectedSlot && selectedSlot.r === slot.r && selectedSlot.c === slot.c;
       if (slot.machine) {
@@ -7160,7 +7541,7 @@ window.Game.AudioContent = {
       } else {
         drawEmptySlot(slot.r, slot.c);
       }
-    });
+    }
 
     updateAndDrawParticles(dt);
     updateAndDrawFloaters(dt);
@@ -7169,7 +7550,7 @@ window.Game.AudioContent = {
   }
 
   G.Render = {
-    init, resize, setCamera, setHover, setSelected,
+    init, resize, setCamera, setHover, setSelected, invalidate: () => { floorCacheKey = ""; },
     worldToScreen, screenToWorld, slotAtScreen, slotAtWorld, slotWorldPos, gridWorldBounds,
     render, spawnCollectFloater, spawnBonusIcon, spawnParticle,
     CELL,
@@ -7186,7 +7567,7 @@ window.Game.AudioContent = {
   "use strict";
 
   const PAN_SPEED = 620; // world units/sec at zoom 1
-  const ZOOM_MIN = 0.55, ZOOM_MAX = 2.3;
+  const ZOOM_MIN = 0.55, ZOOM_MAX = 2.8;
 
   let canvas;
   let camera = { x: 0, y: 0, zoom: 1 };
@@ -7408,6 +7789,7 @@ window.Game.AudioContent = {
   let onAfterAction = () => {};
   let onStateImported = () => {};
   let machineSelectorCollapsed = false;
+  let hardResetReturnPanel = null;
 
   function $(id) { return document.getElementById(id); }
   function money(n) { return "$" + E.formatMoney(n); }
@@ -7482,6 +7864,8 @@ window.Game.AudioContent = {
 
 
   const oceanFishDecorationNodes = new Map();
+  let cachedOceanFishMechanicDef = null;
+  let cachedOceanFishValidIds = null;
 
   function fishDecorationMarkup() {
     return `<span class="fish-shadow"></span><span class="fish-art"><span class="fish-tail"></span><span class="fish-fin fish-fin--top"></span><span class="fish-fin fish-fin--bottom"></span><span class="fish-body"><span class="fish-gill"></span><span class="fish-eye"><i></i></span><span class="fish-mouth"></span><span class="fish-mark fish-mark--1"></span><span class="fish-mark fish-mark--2"></span><span class="fish-mark fish-mark--3"></span><span class="fish-highlight"></span></span><span class="fish-splash fish-splash--1"></span><span class="fish-splash fish-splash--2"></span><span class="fish-splash fish-splash--3"></span><span class="fish-splash fish-splash--4"></span><span class="fish-splash fish-splash--5"></span><span class="fish-wet-shine"></span></span>`;
@@ -7491,10 +7875,18 @@ window.Game.AudioContent = {
     const layer = els.mechanicDecorationLayer;
     if (!layer || !state || !G.Zone || !G.Render) return;
     const decorations = (mechanicUi && mechanicUi.machineDecorations) || [];
+    if (!decorations.length && oceanFishDecorationNodes.size === 0) return;
+    if (!cachedOceanFishMechanicDef) cachedOceanFishMechanicDef = oceanFishMechanicDef();
+    if (!cachedOceanFishValidIds) {
+      cachedOceanFishValidIds = new Set(cachedOceanFishMechanicDef && cachedOceanFishMechanicDef.config && Array.isArray(cachedOceanFishMechanicDef.config.species)
+        ? cachedOceanFishMechanicDef.config.species.map((fish) => fish && fish.id).filter(Boolean) : []);
+    }
+    const validFishIds = cachedOceanFishValidIds;
     const activeKeys = new Set();
+    const currentZone = F.getZone(state, state.currentZoneId);
+    const currentFloor = currentZone && currentZone.floors ? currentZone.floors.find((f) => f.id === state.currentFloorId) : null;
+    const zoom = Math.max(0.58, Math.min(1.08, Number(state.camera && state.camera.zoom) || 1));
     decorations.forEach((item) => {
-      const fishDef = oceanFishMechanicDef();
-      const validFishIds = new Set(fishDef && fishDef.config && Array.isArray(fishDef.config.species) ? fishDef.config.species.map((fish) => fish && fish.id).filter(Boolean) : []);
       if (!item || item.visual !== "fish" || !validFishIds.has(item.variant)) return;
       const key = [item.floorId, item.r, item.c, item.decorationId].join(":");
       activeKeys.add(key);
@@ -7507,21 +7899,36 @@ window.Game.AudioContent = {
         layer.appendChild(node);
         oceanFishDecorationNodes.set(key, node);
       }
-      node.className = "mechanic-machine-decoration stranded-fish-decoration fish--" + item.variant + (item.state === "auto-catching" ? " is-auto-catching" : " is-flopping");
-      node.style.setProperty("--fish-seed", String(Number.isFinite(Number(item.seed)) ? Number(item.seed) : 0.5));
-      const currentZone = F.getZone(state, state.currentZoneId);
-      const currentFloor = currentZone && currentZone.floors ? currentZone.floors.find((f) => f.id === state.currentFloorId) : null;
-      if (!currentFloor || item.floorId !== currentFloor.id) { node.style.display = "none"; return; }
+      const nextClass = "mechanic-machine-decoration stranded-fish-decoration fish--" + item.variant + (item.state === "auto-catching" ? " is-auto-catching" : " is-flopping");
+      if (node.className !== nextClass) node.className = nextClass;
+      const seed = String(Number.isFinite(Number(item.seed)) ? Number(item.seed) : 0.5);
+      if (node.dataset.fishSeed !== seed) {
+        node.dataset.fishSeed = seed;
+        node.style.setProperty("--fish-seed", seed);
+      }
+      if (!currentFloor || item.floorId !== currentFloor.id) {
+        if (node.style.display !== "none") node.style.display = "none";
+        return;
+      }
       const world = G.Render.slotWorldPos(item.r, item.c);
       const screen = G.Render.worldToScreen(world.x, world.y - 28);
-      const zoom = Math.max(0.58, Math.min(1.08, Number(state.camera && state.camera.zoom) || 1));
+      const left = screen.x + "px";
+      const top = screen.y + "px";
+      if (node.style.left !== left) node.style.left = left;
+      if (node.style.top !== top) node.style.top = top;
+      if (node.style.display !== "block") node.style.display = "block";
+      const zoomValue = String(zoom);
+      if (node.dataset.fishZoom !== zoomValue) {
+        node.dataset.fishZoom = zoomValue;
+        node.style.setProperty("--fish-zoom", zoomValue);
+      }
       const remaining = Number.isFinite(Number(item.remaining)) ? Number(item.remaining) : 0;
       const duration = Math.max(0.1, Number(item.duration) || 1);
-      node.style.display = "block";
-      node.style.left = screen.x + "px";
-      node.style.top = screen.y + "px";
-      node.style.setProperty("--fish-zoom", String(zoom));
-      node.style.setProperty("--fish-life", String(Math.max(0, Math.min(1, remaining / duration))));
+      const life = String(Math.max(0, Math.min(1, remaining / duration)));
+      if (node.dataset.fishLife !== life) {
+        node.dataset.fishLife = life;
+        node.style.setProperty("--fish-life", life);
+      }
     });
     oceanFishDecorationNodes.forEach((node, key) => {
       if (!activeKeys.has(key)) { node.remove(); oceanFishDecorationNodes.delete(key); }
@@ -7741,8 +8148,10 @@ window.Game.AudioContent = {
     const totalMachines = groups.reduce((sum, group) => sum + group.defs.length, 0);
     const selectedDef = state.selectedMachineId ? D.machineById(state.selectedMachineId) : null;
     const selectedName = selectedDef ? G.i18n.t(selectedDef.nameKey) : G.i18n.t("zone.coreMachines");
+    const selectedCost = selectedDef ? E.machineCostById(state, selectedDef.id) : null;
+    const selectedCostText = selectedCost != null && Number.isFinite(selectedCost) ? money(selectedCost) : "";
     host.innerHTML = `<div class="machine-selector-head">
-      <div class="machine-selector-title"><span class="machine-selector-icon">▦</span><span><b>${escapeHtml(G.i18n.t("zone.machines"))}</b><small>${totalMachines} · ${escapeHtml(selectedName)}</small></span></div>
+      <div class="machine-selector-title"><span class="machine-selector-icon">▦</span><span><b>${escapeHtml(G.i18n.t("zone.machines"))}</b><small>${totalMachines} · ${escapeHtml(selectedName)}${selectedCostText ? " · " + escapeHtml(selectedCostText) : ""}</small></span></div>
       <button type="button" class="machine-selector-toggle" aria-expanded="${machineSelectorCollapsed ? "false" : "true"}" aria-controls="machine-selector-body"><span>${machineSelectorCollapsed ? "＋" : "−"}</span><small>${machineSelectorCollapsed ? G.i18n.t("menu.open") : G.i18n.t("menu.close")}</small></button>
     </div><div id="machine-selector-body" class="machine-selector-body">${groups.map((group) => `<section class="machine-catalog-group"><h4>${escapeHtml(group.label)}</h4><div class="machine-catalog-track">${group.defs.map(machineCard).join("")}</div></section>`).join("")}</div>`;
     host.classList.remove("hidden");
@@ -7892,11 +8301,45 @@ window.Game.AudioContent = {
   function openPanel(name) {
     if (name === "zones" && !selectedZonePreviewId) selectedZonePreviewId = state.currentZoneId;
     activePanel = name;
+    els.modalOverlay.classList.toggle("modal-overlay--light", name === "hardResetConfirm");
     els.modalOverlay.classList.remove("hidden");
     renderPanel();
   }
-  function closePanel() { activePanel = null; els.modalOverlay.classList.add("hidden"); }
+  function closePanel() {
+    activePanel = null;
+    hardResetReturnPanel = null;
+    els.modalOverlay.classList.remove("modal-overlay--light");
+    els.modalOverlay.classList.add("hidden");
+  }
   function wireModalClose() { const btn = $("modal-close"); if (btn) btn.addEventListener("click", closePanel); }
+
+  function openHardResetConfirm() {
+    hardResetReturnPanel = activePanel || "settings";
+    activePanel = "hardResetConfirm";
+    els.modalOverlay.classList.add("modal-overlay--light");
+    els.modalOverlay.classList.remove("hidden");
+    renderPanel();
+  }
+
+  function renderHardResetConfirmPanel() {
+    els.modalContent.innerHTML = `<button class="panel-close" id="modal-close">✕</button><div class="hard-reset-confirm"><div class="hard-reset-icon">⚠</div><h2>${escapeHtml(G.i18n.t("settings.hardResetConfirmTitle"))}</h2><p class="m-sub">${escapeHtml(G.i18n.t("settings.hardResetConfirmBody"))}</p><div class="hard-reset-actions"><button type="button" class="btn ghost" id="hard-reset-cancel">${escapeHtml(G.i18n.t("settings.hardResetConfirmCancel"))}</button><button type="button" class="btn warn" id="hard-reset-confirm-action">${escapeHtml(G.i18n.t("settings.hardResetConfirmAction"))}</button></div></div>`;
+    const cancel = $("hard-reset-cancel");
+    if (cancel) cancel.addEventListener("click", () => {
+      const previous = hardResetReturnPanel || "settings";
+      hardResetReturnPanel = null;
+      activePanel = null;
+      els.modalOverlay.classList.remove("modal-overlay--light");
+      els.modalOverlay.classList.add("hidden");
+      if (previous && previous !== "hardResetConfirm") openPanel(previous);
+    });
+    const confirmButton = $("hard-reset-confirm-action");
+    if (confirmButton) confirmButton.addEventListener("click", () => {
+      hardResetReturnPanel = null;
+      if (G.Main && typeof G.Main.hardReset === "function") G.Main.hardReset();
+      else { closePanel(); }
+    });
+    wireModalClose();
+  }
 
   function renderPanel() {
     if (!activePanel) return;
@@ -7906,6 +8349,7 @@ window.Game.AudioContent = {
     else if (activePanel === "tech") renderTechPanel();
     else if (activePanel === "settings") renderSettingsPanel();
     else if (activePanel === "oceanFishEncyclopedia") renderOceanFishEncyclopedia();
+    else if (activePanel === "hardResetConfirm") renderHardResetConfirmPanel();
     els.modalContent.scrollTop = scrollTop;
   }
 
@@ -8064,7 +8508,7 @@ window.Game.AudioContent = {
     $("range-sfx").addEventListener("change",()=>onAfterAction());
     $("btn-export-save").addEventListener("click",async()=>{const code=G.Save.exportSave(state),area=$("save-export-code");area.value=code||"";if(!code)return;area.focus();area.select();try{if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(code);}finally{toast(G.i18n.t("notify.saveExported"));}});
     $("btn-import-save").addEventListener("click",()=>{const code=$("save-import-code").value.trim();if(!code)return;const imported=G.Save.importSave(code);if(!imported){G.Audio.sfxError();toast(G.i18n.t("notify.importFailed"),"warn");return;}onStateImported(imported);});
-    $("btn-hard-reset").addEventListener("click",()=>{if(confirm(G.i18n.t("settings.hardResetConfirm")))window.dispatchEvent(new CustomEvent("mft:hardreset"));});
+    $("btn-hard-reset").addEventListener("click",()=>{ G.Audio.unlock(); G.Audio.sfxClick(); openHardResetConfirm(); });
   }
 
   function renderDrawer(){if(!els.drawer||els.drawer.classList.contains("hidden"))return;els.drawer.innerHTML=`<div style="font-family:var(--font-display);font-size:14px;margin-bottom:6px;">${escapeHtml(G.i18n.t("controls.title"))}</div><div style="font-size:11px;color:var(--text-muted);line-height:1.5;">${escapeHtml(G.i18n.t("controls.mobile"))}</div>`;}
@@ -8097,6 +8541,9 @@ window.Game.AudioContent = {
   let audioUnlocked = false;
   let critFlashThrottle = 0;
   let hudAccum = 0;
+  let gameModeActive = false;
+  let fullscreenRecoveryVisible = false;
+  let hasEnteredFullscreen = false;
 
   async function boot() {
     const startScreen = document.getElementById("start-screen");
@@ -8119,7 +8566,9 @@ window.Game.AudioContent = {
         // Unlock here so BGM/SFX can start without requiring a second tap.
         audioUnlocked = true;
         G.Audio.unlock();
-        await G.Platform.screen.enterGameMode();
+        gameModeActive = true;
+        const mode = await G.Platform.screen.enterGameMode();
+        hasEnteredFullscreen = !!mode?.fullscreen;
         startScreen.classList.add("hidden");
         app.classList.remove("game-hidden");
         boot();
@@ -8160,15 +8609,51 @@ window.Game.AudioContent = {
     G.UI.init(state, { onStateImported: handleImportedState, onAfterAction: () => G.Save.save(state) });
     wireGlobalUi();
     const rotateOverlay = document.getElementById("rotate-overlay");
+    const fullscreenRecovery = document.getElementById("fullscreen-recovery");
+    const fullscreenContinue = document.getElementById("fullscreen-recovery-continue");
+    const setFullscreenRecovery = (visible) => {
+      fullscreenRecoveryVisible = !!visible;
+      if (!fullscreenRecovery) return;
+      fullscreenRecovery.classList.toggle("hidden", !fullscreenRecoveryVisible);
+      fullscreenRecovery.setAttribute("aria-hidden", String(!fullscreenRecoveryVisible));
+      if (fullscreenRecoveryVisible) {
+        const title = fullscreenRecovery.querySelector("[data-i18n=\"fullscreenRecovery.title\"]");
+        const body = fullscreenRecovery.querySelector("[data-i18n=\"fullscreenRecovery.body\"]");
+        const button = fullscreenRecovery.querySelector("[data-i18n=\"fullscreenRecovery.continue\"]");
+        if (title) title.textContent = G.i18n.t("fullscreenRecovery.title");
+        if (body) body.textContent = G.i18n.t("fullscreenRecovery.body");
+        if (button) button.textContent = G.i18n.t("fullscreenRecovery.continue");
+      }
+      updateOrientationOverlay();
+    };
+    const updateFullscreenRecovery = () => {
+      if (!gameModeActive || !fullscreenRecovery) return;
+      const isFullscreen = G.Platform.screen.isFullscreen();
+      if (isFullscreen) hasEnteredFullscreen = true;
+      const shouldShow = !!hasEnteredFullscreen && !isFullscreen;
+      setFullscreenRecovery(shouldShow);
+    };
     const updateOrientationOverlay = () => {
       if (!rotateOverlay) return;
-      const shouldShow = !G.Input.isLandscape() && G.Input.isTouchDevice();
+      const shouldShow = !fullscreenRecoveryVisible && !G.Input.isLandscape() && G.Input.isTouchDevice();
       rotateOverlay.classList.toggle("hidden", shouldShow ? false : true);
       rotateOverlay.setAttribute("aria-hidden", String(!shouldShow));
       if (shouldShow) rotateOverlay.querySelector("[data-i18n]")?.replaceChildren(document.createTextNode(G.i18n.t("orientation.rotate")));
     };
-    window.addEventListener("resize", () => { G.Render.resize(); updateOrientationOverlay(); });
+    if (fullscreenContinue) fullscreenContinue.addEventListener("click", async () => {
+      G.Audio.unlock();
+      const mode = await G.Platform.screen.enterGameMode();
+      if (mode?.fullscreen) {
+        hasEnteredFullscreen = true;
+        setFullscreenRecovery(false);
+      } else {
+        setFullscreenRecovery(true);
+      }
+    });
+    document.addEventListener("fullscreenchange", updateFullscreenRecovery);
+    window.addEventListener("resize", () => { G.Render.resize(); updateOrientationOverlay(); updateFullscreenRecovery(); });
     updateOrientationOverlay();
+    updateFullscreenRecovery();
 
     const unlock = () => {
       if (audioUnlocked) return;
@@ -8334,6 +8819,7 @@ window.Game.AudioContent = {
     G.Render.setCamera(state.camera);
     G.Input.setCameraRef(state.camera);
     G.Background.sync(state);
+    G.Save.save(state);
     G.UI.setState(state);
     G.UI.closePanel();
   }
@@ -8367,6 +8853,10 @@ window.Game.AudioContent = {
 
 
   function processEvents(events) {
+    if (!events || events.length === 0) {
+      if (bonusSlot && Date.now() > bonusSlot.expiresAt) bonusSlot = null;
+      return;
+    }
     const now = performance.now();
     events.forEach((ev) => {
       const audioResult = G.Audio && typeof G.Audio.playEvent === "function" ? G.Audio.playEvent(ev, state) : { replaceDefault: false };
@@ -8428,6 +8918,7 @@ window.Game.AudioContent = {
 
   G.Main = G.Main || {};
   G.Main.processEvents = processEvents;
+  G.Main.hardReset = handleHardReset;
 
   function loop(ts) {
     try {

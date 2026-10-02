@@ -222,7 +222,7 @@
       if (loaded.camera && typeof loaded.camera === "object") {
         if (typeof loaded.camera.x === "number" && isFinite(loaded.camera.x)) out.camera.x = loaded.camera.x;
         if (typeof loaded.camera.y === "number" && isFinite(loaded.camera.y)) out.camera.y = loaded.camera.y;
-        if (typeof loaded.camera.zoom === "number" && isFinite(loaded.camera.zoom) && loaded.camera.zoom > 0) out.camera.zoom = clamp(loaded.camera.zoom, 0.5, 2.5);
+        if (typeof loaded.camera.zoom === "number" && isFinite(loaded.camera.zoom) && loaded.camera.zoom > 0) out.camera.zoom = clamp(loaded.camera.zoom, 0.5, 2.8);
       }
 
       if (typeof loaded.currentZoneId === "string" && D.zoneById(loaded.currentZoneId)) out.currentZoneId = loaded.currentZoneId;

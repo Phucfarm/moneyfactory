@@ -27,6 +27,7 @@
   const MECHANIC_UI_VARIANTS = new Set(["disabled", "buff", "warning", "info"]);
   const MECHANIC_UI_TONES = new Set(["info", "good", "warn", "danger", "muted"]);
   const MECHANIC_DECORATION_TYPES = new Set(["fish"]);
+  const EMPTY_READONLY_OBJECT = Object.freeze({});
 
   function isPlainObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
   function cloneJson(value) { try { return JSON.parse(JSON.stringify(value)); } catch (_e) { return {}; } }
@@ -286,6 +287,7 @@
     "modifyProduction", "modifyCooldown", "onMachineCycle", "onMachinePlaced", "onMachineCollected",
     "onAfterTick", "onAfterZoneTick", "onGameEvent", "onCheckSecrets", "getUIState",
   ];
+  const HOOK_METHODS = CONTRACT_METHODS.slice();
 
   function validateMechanicClass(MechanicClass) {
     if (typeof MechanicClass !== "function") throw new Error("Zone mechanic must be a class/constructor");
@@ -386,15 +388,25 @@
 
   function buildMechanicGameView(state) {
     const data = D || {};
-    const cloneDef = (fn, args) => {
-      try { return deepFreeze(cloneJson(typeof fn === "function" ? fn(...args) : null)); } catch (_e) { return null; }
+    const machineCache = new Map();
+    const tierCache = new Map();
+    const zoneCache = new Map();
+    const floorCache = new Map();
+    const cachedClone = (cache, key, fn, args) => {
+      const cacheKey = String(key);
+      if (cache.has(cacheKey)) return cache.get(cacheKey);
+      try {
+        const value = deepFreeze(cloneJson(typeof fn === "function" ? fn(...args) : null));
+        cache.set(cacheKey, value);
+        return value;
+      } catch (_e) { return null; }
     };
     return Object.freeze({
       DATA: Object.freeze({
-        machineById: (id) => cloneDef(data.machineById, [id]),
-        tierById: (id) => cloneDef(data.tierById, [id]),
-        zoneById: (id) => cloneDef(data.zoneById, [id]),
-        floorById: (zoneId, floorId) => cloneDef(data.floorById, [zoneId, floorId]),
+        machineById: (id) => cachedClone(machineCache, id, data.machineById, [id]),
+        tierById: (id) => cachedClone(tierCache, id, data.tierById, [id]),
+        zoneById: (id) => cachedClone(zoneCache, id, data.zoneById, [id]),
+        floorById: (zoneId, floorId) => cachedClone(floorCache, String(zoneId) + "|" + String(floorId), data.floorById, [zoneId, floorId]),
       }),
       Econ: Object.freeze({
         machineCooldown: (machine) => G.Econ && typeof G.Econ.machineCooldown === "function" ? G.Econ.machineCooldown(machine, state) : null,
@@ -417,7 +429,16 @@
       this.zoneDef = zoneDef;
       this.zoneState = zoneState;
       this.instances = new Map();
+      this.uiInstances = new Map();
+      this.hotContexts = new Map();
+      this.uiContexts = new Map();
+      this.uiFloorId = null;
+      this.uiFloorProxy = null;
+      this.hooks = Object.create(null);
+      HOOK_METHODS.forEach((name) => { this.hooks[name] = []; });
       this.disabled = new Set();
+      this.mechanicGameView = buildMechanicGameView(state);
+      this.uiZoneDef = buildUiZoneDef(zoneDef);
       ensureZoneContainers(zoneState, zoneDef);
     }
 
@@ -432,6 +453,15 @@
         validateMechanicClass(MechanicClass);
         const instance = new MechanicClass(def);
         this.instances.set(def.id, instance);
+        const uiInstance = Object.create(Object.getPrototypeOf(instance));
+        Object.getOwnPropertyNames(instance).forEach((key) => { uiInstance[key] = instance[key]; });
+        Object.freeze(uiInstance);
+        this.uiInstances.set(def.id, uiInstance);
+        for (const method of HOOK_METHODS) {
+          if (typeof instance[method] === "function" && instance[method] !== ZoneMechanicContract.prototype[method]) {
+            this.hooks[method].push(instance);
+          }
+        }
         const attached = this.call(instance, "onAttach", this.context(instance, { mode: "attach" }));
         if (attached === false) {
           this.disable(def.id, new Error("Mechanic rejected attachment"));
@@ -449,38 +479,49 @@
       if (error) console.error("Zone mechanic quarantined:", this.zoneDef.id, mechanicId, error);
     }
 
-    uiContext(mechanic, uiSnapshot, floorId, calculationState) {
-      const snapshot = uiSnapshot || buildUiStateSnapshot(this.state);
-      const calcState = calculationState || cloneJson(this.state);
-      const zoneState = (snapshot.zones || []).find((z) => z && z.id === this.zoneDef.id) || {};
-      const floor = (zoneState.floors || []).find((item) => item && item.id === floorId) || null;
-      const mechanics = zoneState.mechanicState || {};
-      const variables = zoneState.variables || {};
-      const zoneDefSnapshot = buildUiZoneDef(this.zoneDef);
-      return Object.freeze({
-        game: buildUiGameView(),
-        state: snapshot,
+    uiContext(mechanic, _uiSnapshot, floorId, _calculationState) {
+      // UI contexts are read-only and synchronous. Keep one frozen facade per
+      // mechanic and update only the two values that can change between frames.
+      // This removes repeated object creation/freeze work from the render loop.
+      this.uiFloorId = floorId;
+      const liveFloor = (this.zoneState.floors || []).find((item) => item && item.id === floorId) || null;
+      this.uiFloorProxy = readonlyView(liveFloor);
+      let cached = this.uiContexts.get(mechanic.id);
+      if (cached) return cached;
+
+      const liveState = readonlyView(this.state);
+      const liveZoneState = readonlyView(this.zoneState);
+      const mechanics = readonlyView(this.zoneState.mechanicState || {});
+      const variables = readonlyView(this.zoneState.variables || {});
+      const zoneDefSnapshot = this.uiZoneDef || (this.uiZoneDef = buildUiZoneDef(this.zoneDef));
+      const runtime = this;
+      const ctx = {
+        game: this.mechanicGameView || buildMechanicGameView(this.state),
+        state: liveState,
         zoneId: this.zoneDef.id,
         zoneDef: zoneDefSnapshot,
-        zoneState: zoneState,
-        zone: zoneState,
-        floor,
-        floorId,
+        zoneState: liveZoneState,
+        zone: liveZoneState,
+        get floor() { return runtime.uiFloorProxy; },
+        get floorId() { return runtime.uiFloorId; },
         zoneVariables: variables,
-        mechanic,
+        mechanic: readonlyView(mechanic),
         mechanics,
-        mechanicStateFor: (id) => mechanics[id] || deepFreeze({}),
+        mechanicStateFor: (id) => readonlyView(this.zoneState.mechanicState && this.zoneState.mechanicState[id]) || EMPTY_READONLY_OBJECT,
         discoverSecret: () => false,
         rewardCash: () => false,
         emit: () => false,
         emitUI: () => false,
-        requirementValue: (req) => requirementValue(calcState, req, this.zoneDef.id),
-        requirementMet: (req) => requirementMet(calcState, req, this.zoneDef.id),
-        requirementsMet: (reqs) => requirementsMet(calcState, reqs, this.zoneDef.id),
-        machineUnlocked: (machineId) => isMachineUnlocked(calcState, machineId),
-        canPlaceMachine: (machineId, targetZoneId) => canPlaceMachineInZone(calcState, machineId, targetZoneId || this.zoneDef.id),
+        requirementValue: (req) => requirementValue(this.state, req, this.zoneDef.id),
+        requirementMet: (req) => requirementMet(this.state, req, this.zoneDef.id),
+        requirementsMet: (reqs) => requirementsMet(this.state, reqs, this.zoneDef.id),
+        machineUnlocked: (machineId) => isMachineUnlocked(this.state, machineId),
+        canPlaceMachine: (machineId, targetZoneId) => canPlaceMachineInZone(this.state, machineId, targetZoneId || this.zoneDef.id),
         mode: "ui",
-      });
+      };
+      Object.freeze(ctx);
+      this.uiContexts.set(mechanic.id, ctx);
+      return ctx;
     }
 
     context(mechanic, extra) {
@@ -498,7 +539,7 @@
       delete input.slot;
       delete input.machine;
       return Object.assign({
-        game: buildMechanicGameView(this.state),
+        game: this.mechanicGameView,
         state: readonlyView(this.state),
         zoneId: this.zoneDef.id,
         zoneDef: readonlyView(this.zoneDef),
@@ -538,12 +579,35 @@
       catch (error) { this.disable(instance.id, error); return undefined; }
     }
 
+    hotContext(instance, methodName, dynamic) {
+      let byMethod = this.hotContexts.get(instance);
+      if (!byMethod) { byMethod = new Map(); this.hotContexts.set(instance, byMethod); }
+      let ctx = byMethod.get(methodName);
+      if (!ctx) {
+        ctx = this.context(instance, { mode: dynamic.mode });
+        byMethod.set(methodName, ctx);
+      }
+      ctx.mode = dynamic.mode;
+      ctx.floor = readonlyView(dynamic.floor);
+      ctx.machine = readonlyView(dynamic.machine);
+      ctx.slot = readonlyView(dynamic.slot);
+      return ctx;
+    }
+
+    forEachHot(methodName, dynamic, fn) {
+      const list = this.hooks[methodName];
+      if (!Array.isArray(list)) return;
+      for (const instance of list) {
+        if (!instance || this.disabled.has(instance.id)) continue;
+        const ctx = this.hotContext(instance, methodName, dynamic);
+        try { fn(instance, ctx); } catch (error) { this.disable(instance.id, error); }
+      }
+    }
+
     callUi(instance, ctx) {
       if (!instance || this.disabled.has(instance.id)) return undefined;
       try {
-        const uiInstance = Object.create(Object.getPrototypeOf(instance));
-        Object.getOwnPropertyNames(instance).forEach((key) => { uiInstance[key] = instance[key]; });
-        Object.freeze(uiInstance);
+        const uiInstance = this.uiInstances.get(instance.id) || instance;
         return instance.getUIState.call(uiInstance, ctx);
       } catch (error) {
         console.error("Zone mechanic UI failed:", this.zoneDef.id, instance.id, error);
@@ -551,7 +615,16 @@
       }
     }
 
-    forEach(fn, extra) {
+    forEach(fn, extra, methodName = null) {
+      if (methodName && Array.isArray(this.hooks[methodName])) {
+        const list = this.hooks[methodName];
+        for (const instance of list) {
+          if (!instance || this.disabled.has(instance.id)) continue;
+          const ctx = this.context(instance, extra);
+          try { fn(instance, ctx); } catch (error) { this.disable(instance.id, error); }
+        }
+        return;
+      }
       for (const def of this.defs()) {
         if (!def || def.enabled === false || this.disabled.has(def.id)) continue;
         const instance = this.instanceFor(def);
@@ -985,24 +1058,28 @@
   }
 
   // ---- Production hooks --------------------------------------------------
-  function beforeZoneTick(state, zone, dt, events) { if (zone) forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onBeforeZoneTick", Object.assign(c, { zone, dt, events, mode: "live" })), { events }); }
-  function afterZoneTick(state, zone, dt, events) { if (zone) forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onAfterZoneTick", Object.assign(c, { zone, dt, events, mode: "live" })), { events }); }
-  function beforeTick(state, zone, floor, dt, events) { if (zone && floor) forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onBeforeTick", Object.assign(c, { zone, floor, dt, events, mode: "live" })), { events }); }
+  function beforeZoneTick(state, zone, dt, events) { if (zone) { const runtime = getRuntime(state, zone.id); if (runtime) runtime.forEach((m, c) => runtime.call(m, "onBeforeZoneTick", Object.assign(c, { zone, dt, events, mode: "live" })), { events }, "onBeforeZoneTick"); } }
+  function afterZoneTick(state, zone, dt, events) { if (zone) { const runtime = getRuntime(state, zone.id); if (runtime) runtime.forEach((m, c) => runtime.call(m, "onAfterZoneTick", Object.assign(c, { zone, dt, events, mode: "live" })), { events }, "onAfterZoneTick"); } }
+  function beforeTick(state, zone, floor, dt, events) { if (zone && floor) { const runtime = getRuntime(state, zone.id); if (runtime) runtime.forEach((m, c) => runtime.call(m, "onBeforeTick", Object.assign(c, { zone, floor, dt, events, mode: "live" })), { events }, "onBeforeTick"); } }
 
   function beforeMachineCycle(state, zone, floor, machine, slot, events) {
     let working = true;
     if (!zone) return working;
-    forEachMechanic(state, zone.id, (m, c) => {
-      const result = getRuntime(state, zone.id)?.call(m, "onBeforeMachineCycle", Object.assign(c, { zone, floor, machine, slot, events, mode: "live" }));
+    const runtime = getRuntime(state, zone.id);
+    if (!runtime) return working;
+    runtime.forEach((m, c) => {
+      const result = runtime.call(m, "onBeforeMachineCycle", Object.assign(c, { zone, floor, machine, slot, events, mode: "live" }));
       if (result === false) working = false;
-    }, { events });
+    }, { events }, "onBeforeMachineCycle");
     return working;
   }
 
   function getProductionMultiplier(state, zoneId, floor, machine, slot, mode = "live") {
     let multiplier = 1;
-    forEachMechanic(state, zoneId, (m, c) => {
-      const result = getRuntime(state, zoneId)?.call(m, "modifyProduction", Object.assign(c, { floor, machine, slot: slot || null, mode }), [multiplier, machine]);
+    const runtime = getRuntime(state, zoneId);
+    if (!runtime) return multiplier;
+    runtime.forEachHot("modifyProduction", { floor, machine, slot: slot || null, mode }, (m, c) => {
+      const result = runtime.call(m, "modifyProduction", c, [multiplier, machine]);
       if (Number.isFinite(result)) multiplier = clampMultiplier(result, multiplier);
     });
     return multiplier;
@@ -1010,8 +1087,10 @@
 
   function modifyCooldown(state, zoneId, floor, machine, cooldown, mode = "live") {
     let value = Number.isFinite(cooldown) ? cooldown : 1;
-    forEachMechanic(state, zoneId, (m, c) => {
-      const result = getRuntime(state, zoneId)?.call(m, "modifyCooldown", Object.assign(c, { floor, machine, mode }), [value, machine]);
+    const runtime = getRuntime(state, zoneId);
+    if (!runtime) return value;
+    runtime.forEachHot("modifyCooldown", { floor, machine, slot: undefined, mode }, (m, c) => {
+      const result = runtime.call(m, "modifyCooldown", c, [value, machine]);
       if (Number.isFinite(result)) value = Math.max(0.05, result);
     });
     return value;
@@ -1019,16 +1098,20 @@
 
   function afterMachineCycle(state, zone, floor, machine, slot, result, events) {
     if (!zone) return;
-    forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onMachineCycle", Object.assign(c, { zone, floor, machine, slot, result, events, mode: "live" }), [result]), { events });
+    const runtime = getRuntime(state, zone.id);
+    if (!runtime) return;
+    runtime.forEach((m, c) => runtime.call(m, "onMachineCycle", Object.assign(c, { zone, floor, machine, slot, result, events, mode: "live" }), [result]), { events }, "onMachineCycle");
   }
   function onMachinePlaced(state, zoneId, floor, machine, slot, events) {
-    forEachMechanic(state, zoneId, (m, c) => getRuntime(state, zoneId)?.call(m, "onMachinePlaced", Object.assign(c, { floor, machine, slot, events, mode: "live" })), { events });
+    const runtime = getRuntime(state, zoneId);
+    if (runtime) runtime.forEach((m, c) => runtime.call(m, "onMachinePlaced", Object.assign(c, { floor, machine, slot, events, mode: "live" })), { events }, "onMachinePlaced");
   }
   function onMachineCollected(state, zoneId, floor, machine, slot, amount, events, automatic = false) {
-    forEachMechanic(state, zoneId, (m, c) => getRuntime(state, zoneId)?.call(m, "onMachineCollected", Object.assign(c, { floor, machine, slot: slot || null, amount, automatic: !!automatic, events, mode: "live" }), [amount]), { events });
+    const runtime = getRuntime(state, zoneId);
+    if (runtime) runtime.forEach((m, c) => runtime.call(m, "onMachineCollected", Object.assign(c, { floor, machine, slot: slot || null, amount, automatic: !!automatic, events, mode: "live" }), [amount]), { events }, "onMachineCollected");
   }
   function afterTick(state, zone, floor, dt, events) {
-    if (zone && floor) forEachMechanic(state, zone.id, (m, c) => getRuntime(state, zone.id)?.call(m, "onAfterTick", Object.assign(c, { zone, floor, dt, events, mode: "live" })), { events });
+    if (zone && floor) { const runtime = getRuntime(state, zone.id); if (runtime) runtime.forEach((m, c) => runtime.call(m, "onAfterTick", Object.assign(c, { zone, floor, dt, events, mode: "live" })), { events }, "onAfterTick"); }
   }
 
   function dispatchEvents(state, events) {
@@ -1041,7 +1124,8 @@
       processed++;
       const zone = getZoneState(state, event.zoneId);
       if (!zone || !zone.unlocked) continue;
-      forEachMechanic(state, event.zoneId, (m, c) => getRuntime(state, event.zoneId)?.call(m, "onGameEvent", Object.assign(c, { event, events, mode: "live" }), [event]), { events });
+      const runtime = getRuntime(state, event.zoneId);
+      if (runtime) runtime.forEach((m, c) => runtime.call(m, "onGameEvent", Object.assign(c, { event, events, mode: "live" }), [event]), { events }, "onGameEvent");
     }
   }
 
@@ -1153,7 +1237,8 @@
     ensureZoneContainers(zoneState, zoneDef);
     // Let mechanics update their own persistent conditions first. Generic
     // secret/mechanic discovery then observes the resulting state in the same tick.
-    forEachMechanic(state, zoneId, (m, c) => getRuntime(state, zoneId)?.call(m, "onCheckSecrets", Object.assign(c, { events, mode: "live" })), { events });
+    const runtime = getRuntime(state, zoneId);
+    if (runtime) runtime.forEach((m, c) => runtime.call(m, "onCheckSecrets", Object.assign(c, { events, mode: "live" })), { events }, "onCheckSecrets");
     (zoneDef.secrets || []).forEach((secret) => {
       if (!secret || zoneState.secrets.includes(secret.id)) return;
       const reqs = secret.discovery && secret.discovery.requirements;
@@ -1181,8 +1266,8 @@
     const floor = (zoneState.floors || []).find((item) => item && item.id === floorId) || null;
     const runtime = getRuntime(state, zoneId);
     if (!runtime) return out;
-    const uiSnapshot = buildUiStateSnapshot(state);
-    const calculationState = uiSnapshot;
+    const uiSnapshot = null;
+    const calculationState = state;
     for (const def of runtime.defs()) {
       if (!def || def.enabled === false || !isMechanicUiVisible(zoneDef, zoneState, def.id)) continue;
       const mechanic = runtime.instances.get(def.id);

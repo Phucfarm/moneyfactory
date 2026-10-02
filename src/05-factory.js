@@ -12,6 +12,10 @@
   // Floor ids are only required to be unique inside a Zone, so floor id alone
   // is not a safe runtime key once multiple Zones exist.
   const floorRuntime = {}; // { [zoneId + "::" + floorId]: { collectorTimer, bonusTimer } }
+  // Reused because tick() is strictly synchronous: Core dispatch and Main event
+  // processing finish before the next tick starts. This removes one array allocation
+  // per animation frame without changing the event contract.
+  const tickEvents = [];
   function rt(zoneId, floorId) {
     const key = String(zoneId) + "::" + String(floorId);
     if (!floorRuntime[key]) floorRuntime[key] = { collectorTimer: 0, bonusTimer: 3 + Math.random() * 6 };
@@ -191,20 +195,34 @@
     const outMult = E.floorOutputMult(floor);
     const hasCollector = floor.systems.collector > 0;
     const r = rt(zone.id, floor.id);
+    const eff = E.techEffects(state);
+    const speedPerLevel = D.UPGRADES.speed.effectPerLevel;
+    const outputPerLevel = D.UPGRADES.output.effectPerLevel;
+    const inkPerLevel = D.UPGRADES.ink.effectPerLevel;
 
     G.Zone.beforeTick(state, zone, floor, dt, events);
-    floor.grid.forEach((slot) => {
+    const grid = floor.grid;
+    for (let i = 0; i < grid.length; i++) {
+      const slot = grid[i];
       const m = slot.machine;
-      if (!m) return;
-      const baseCooldown = E.machineCooldown(m, state);
+      if (!m) continue;
+      const def = E.machineDefinition(m);
+      const speedLvl = Number(m.levels && m.levels.speed) || 0;
+      const base = def && Number.isFinite(def.baseCooldown) ? def.baseCooldown : 1;
+      const reduction = 1 - Math.min(0.75, speedPerLevel * speedLvl + eff.globalSpeedMult);
+      const baseCooldown = Math.max(0.15, base * reduction);
       const cooldown = G.Zone.modifyCooldown(state, zone.id, floor, m, baseCooldown);
       m.progress += dt / cooldown;
       while (m.progress >= 1) {
         m.progress -= 1;
         if (!G.Zone.beforeMachineCycle(state, zone, floor, m, slot, events)) continue;
-        let yieldAmt = E.machineBaseYield(m, outMult, state);
-        let isCrit = Math.random() < E.machineCritChance(m, state);
-        if (isCrit) yieldAmt *= E.machineCritMult(m);
+        const outputLvl = Number(m.levels && m.levels.output) || 0;
+        const outputMult = 1 + outputPerLevel * outputLvl + eff.globalOutputMult;
+        let yieldAmt = def ? def.baseYield * outputMult * outMult : 0;
+        const inkLvl = Number(m.levels && m.levels.ink) || 0;
+        const critChance = def ? Math.min(0.6, def.critChance + inkPerLevel * inkLvl + eff.critChanceAdd) : 0;
+        const isCrit = Math.random() < critChance;
+        if (isCrit) yieldAmt *= def ? (def.critMult + 0.15 * inkLvl) : 1;
         const zoneMultiplier = G.Zone.getProductionMultiplier(state, zone.id, floor, m, slot);
         yieldAmt *= zoneMultiplier;
         const result = { amount: yieldAmt, crit: isCrit };
@@ -214,7 +232,7 @@
         if (events) events.push({ type: "cycle", zoneId: zone.id, floorId: floor.id, r: slot.r, c: slot.c, amount: yieldAmt, crit: isCrit });
         G.Zone.afterMachineCycle(state, zone, floor, m, slot, result, events);
       }
-    });
+    }
 
     if (hasCollector) {
       const tickSec = E.collectorTickSeconds(floor, state);
@@ -241,20 +259,25 @@
 
 
   function tick(state, dt) {
-    const events = [];
-    state.zones.forEach((zone) => {
-      if (!zone.unlocked) return;
+    const events = tickEvents;
+    events.length = 0;
+    const zones = state.zones;
+    for (let zi = 0; zi < zones.length; zi++) {
+      const zone = zones[zi];
+      if (!zone.unlocked) continue;
       G.Zone.beforeZoneTick(state, zone, dt, events);
       let zoneHadUnlockedFloor = false;
-      zone.floors.forEach((floor) => {
-        if (!floor.unlocked) return;
+      const floors = zone.floors;
+      for (let fi = 0; fi < floors.length; fi++) {
+        const floor = floors[fi];
+        if (!floor.unlocked) continue;
         zoneHadUnlockedFloor = true;
         tickFloor(state, zone, floor, dt, events);
         G.Zone.afterTick(state, zone, floor, dt, events);
-      });
+      }
       if (zoneHadUnlockedFloor) zone.stats.playTimeSeconds = (zone.stats.playTimeSeconds || 0) + dt;
       G.Zone.afterZoneTick(state, zone, dt, events);
-    });
+    }
     // Resolve discoveries after gameplay state changes but before dispatch so
     // mechanic-emitted discovery/events can participate in the same bounded
     // event chain during this tick.
@@ -296,6 +319,7 @@
     state.skills.points -= tech.cost;
     state.research -= tech.researchCost;
     state.skills.tech[techId] = true;
+    if (E.invalidateTechEffects) E.invalidateTechEffects(state);
     return { ok: true };
   }
 

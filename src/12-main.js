@@ -12,6 +12,9 @@
   let audioUnlocked = false;
   let critFlashThrottle = 0;
   let hudAccum = 0;
+  let gameModeActive = false;
+  let fullscreenRecoveryVisible = false;
+  let hasEnteredFullscreen = false;
 
   async function boot() {
     const startScreen = document.getElementById("start-screen");
@@ -34,7 +37,9 @@
         // Unlock here so BGM/SFX can start without requiring a second tap.
         audioUnlocked = true;
         G.Audio.unlock();
-        await G.Platform.screen.enterGameMode();
+        gameModeActive = true;
+        const mode = await G.Platform.screen.enterGameMode();
+        hasEnteredFullscreen = !!mode?.fullscreen;
         startScreen.classList.add("hidden");
         app.classList.remove("game-hidden");
         boot();
@@ -75,15 +80,51 @@
     G.UI.init(state, { onStateImported: handleImportedState, onAfterAction: () => G.Save.save(state) });
     wireGlobalUi();
     const rotateOverlay = document.getElementById("rotate-overlay");
+    const fullscreenRecovery = document.getElementById("fullscreen-recovery");
+    const fullscreenContinue = document.getElementById("fullscreen-recovery-continue");
+    const setFullscreenRecovery = (visible) => {
+      fullscreenRecoveryVisible = !!visible;
+      if (!fullscreenRecovery) return;
+      fullscreenRecovery.classList.toggle("hidden", !fullscreenRecoveryVisible);
+      fullscreenRecovery.setAttribute("aria-hidden", String(!fullscreenRecoveryVisible));
+      if (fullscreenRecoveryVisible) {
+        const title = fullscreenRecovery.querySelector("[data-i18n=\"fullscreenRecovery.title\"]");
+        const body = fullscreenRecovery.querySelector("[data-i18n=\"fullscreenRecovery.body\"]");
+        const button = fullscreenRecovery.querySelector("[data-i18n=\"fullscreenRecovery.continue\"]");
+        if (title) title.textContent = G.i18n.t("fullscreenRecovery.title");
+        if (body) body.textContent = G.i18n.t("fullscreenRecovery.body");
+        if (button) button.textContent = G.i18n.t("fullscreenRecovery.continue");
+      }
+      updateOrientationOverlay();
+    };
+    const updateFullscreenRecovery = () => {
+      if (!gameModeActive || !fullscreenRecovery) return;
+      const isFullscreen = G.Platform.screen.isFullscreen();
+      if (isFullscreen) hasEnteredFullscreen = true;
+      const shouldShow = !!hasEnteredFullscreen && !isFullscreen;
+      setFullscreenRecovery(shouldShow);
+    };
     const updateOrientationOverlay = () => {
       if (!rotateOverlay) return;
-      const shouldShow = !G.Input.isLandscape() && G.Input.isTouchDevice();
+      const shouldShow = !fullscreenRecoveryVisible && !G.Input.isLandscape() && G.Input.isTouchDevice();
       rotateOverlay.classList.toggle("hidden", shouldShow ? false : true);
       rotateOverlay.setAttribute("aria-hidden", String(!shouldShow));
       if (shouldShow) rotateOverlay.querySelector("[data-i18n]")?.replaceChildren(document.createTextNode(G.i18n.t("orientation.rotate")));
     };
-    window.addEventListener("resize", () => { G.Render.resize(); updateOrientationOverlay(); });
+    if (fullscreenContinue) fullscreenContinue.addEventListener("click", async () => {
+      G.Audio.unlock();
+      const mode = await G.Platform.screen.enterGameMode();
+      if (mode?.fullscreen) {
+        hasEnteredFullscreen = true;
+        setFullscreenRecovery(false);
+      } else {
+        setFullscreenRecovery(true);
+      }
+    });
+    document.addEventListener("fullscreenchange", updateFullscreenRecovery);
+    window.addEventListener("resize", () => { G.Render.resize(); updateOrientationOverlay(); updateFullscreenRecovery(); });
     updateOrientationOverlay();
+    updateFullscreenRecovery();
 
     const unlock = () => {
       if (audioUnlocked) return;
@@ -249,6 +290,7 @@
     G.Render.setCamera(state.camera);
     G.Input.setCameraRef(state.camera);
     G.Background.sync(state);
+    G.Save.save(state);
     G.UI.setState(state);
     G.UI.closePanel();
   }
@@ -282,6 +324,10 @@
 
 
   function processEvents(events) {
+    if (!events || events.length === 0) {
+      if (bonusSlot && Date.now() > bonusSlot.expiresAt) bonusSlot = null;
+      return;
+    }
     const now = performance.now();
     events.forEach((ev) => {
       const audioResult = G.Audio && typeof G.Audio.playEvent === "function" ? G.Audio.playEvent(ev, state) : { replaceDefault: false };
@@ -343,6 +389,7 @@
 
   G.Main = G.Main || {};
   G.Main.processEvents = processEvents;
+  G.Main.hardReset = handleHardReset;
 
   function loop(ts) {
     try {
