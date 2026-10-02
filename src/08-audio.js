@@ -143,7 +143,7 @@
     [0, 0.07, 0.14].forEach((d, i) => tone({ freq: 440 + i * 160, type: "square", dur: 0.09, gain: 0.16, delay: d }));
   }
   function sfxUnlock() {
-    [0, 0.09, 0.18, 0.27].forEach((d, i) => tone({ freq: 392 * Math.pow(2, i / 12) * 2, type: "triangle", dur: 0.15, gain: 0.18, delay: d }));
+    [0, 4, 7, 12].forEach((semitones, i) => tone({ freq: 392 * Math.pow(2, semitones / 12) * 2, type: "triangle", dur: 0.15, gain: 0.18, delay: i * 0.09 }));
   }
   function sfxError() { tone({ freq: 180, type: "sawtooth", dur: 0.18, gain: 0.18, slideTo: 90 }); }
   function sfxTechUnlock() { tone({ freq: 300, type: "sine", dur: 0.25, gain: 0.16, slideTo: 900 }); }
@@ -272,7 +272,7 @@
   }
 
   function startSynthMusic() {
-    if (musicTimer || !musicEnabled || externalMusicSpec) return;
+    if (musicTimer || !musicEnabled || externalMusicSpec || !unlocked) return;
     const c = ensureCtx();
     if (!c) return;
     musicTimer = setInterval(scheduleMusicStep, 260);
@@ -319,15 +319,18 @@
   function disposeExternalMusic({ fade = 0 } = {}) {
     const node = externalMusic;
     if (!node) return;
-    const finish = () => {
-      try { node.pause(); node.currentTime = 0; } catch (_) {}
-    };
-    if (fade > 0 && !node.paused) fadeElement(node, 0, fade, finish);
-    else finish();
-    node.src = "";
+
+    // Detach the current-track refs immediately. The old element may continue
+    // fading out independently while a new external track or synth fallback starts.
     externalMusic = null;
     externalMusicRef = null;
     externalMusicSpec = null;
+
+    const release = () => {
+      try { node.pause(); node.currentTime = 0; node.src = ""; node.load?.(); } catch (_) {}
+    };
+    if (fade > 0 && !node.paused) fadeElement(node, 0, fade, release);
+    else release();
   }
 
   function setMusicTrack(ref) {

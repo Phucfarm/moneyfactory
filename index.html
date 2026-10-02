@@ -2,20 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Money Factory Tycoon</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖨️</text></svg>">
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div id="start-screen" aria-label="Money Factory">
+<div id="start-screen" aria-label="Money Factory" data-i18n-attr="aria-label:start.title">
   <div class="start-card">
     <div class="start-mark">$</div>
-    <div class="start-title">Money Factory</div>
+    <div class="start-title" data-i18n="start.title">Money Factory</div>
     <div class="start-rule"></div>
-    <button id="start-play" class="start-play" type="button">PLAY <span>›</span></button>
+    <button id="start-play" class="start-play" type="button"><span data-i18n="start.play">PLAY</span> <span>›</span></button>
   </div>
 </div>
+
+<div id="rotate-overlay" class="rotate-overlay hidden" aria-hidden="true"><div class="rotate-card"><div class="rotate-icon">↻</div><div data-i18n="orientation.rotate">Please rotate your device to landscape</div></div></div>
 
 <div id="app" class="game-hidden">
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Money Factory Tycoon</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖨️</text></svg>">
 <style>
@@ -640,17 +640,24 @@ html, body {
 @media (max-width:700px){.ocean-fish-encyclopedia{top:auto;bottom:calc(138px + env(safe-area-inset-bottom,0px));right:calc(8px + env(safe-area-inset-right,0px));max-width:170px}#modal-overlay .fish-encyclopedia-grid{grid-template-columns:1fr;gap:9px}#modal-overlay .fish-entry{grid-template-columns:88px minmax(0,1fr);min-height:104px}.fish-entry-art{min-height:82px}.fish-thumb .fish-art{transform:translate(-50%,-50%) rotate(-7deg) scale(.98)}.fish-entry-head b{font-size:11px}.fish-rarity{font-size:7px}.fish-entry-row{font-size:9px}}
 @media (prefers-reduced-motion:reduce){.stranded-fish-decoration.is-flopping .fish-art,.stranded-fish-decoration.is-auto-catching .fish-art,.stranded-fish-decoration .fish-splash{animation:none}}
 
+/* Device orientation guidance: only displayed on touch devices in portrait. */
+.rotate-overlay{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;background:rgba(4,7,11,.96);backdrop-filter:blur(8px);color:var(--text-primary);text-align:center;padding:24px;}
+.rotate-card{width:min(360px,90vw);padding:28px 22px;border:1px solid var(--line-strong);border-radius:14px;background:linear-gradient(180deg,rgba(30,33,40,.98),rgba(20,22,28,.99));box-shadow:0 18px 55px rgba(0,0,0,.5);font-family:var(--font-display);font-size:15px;line-height:1.4;}
+.rotate-icon{font-size:46px;color:var(--accent-brass);margin-bottom:12px;}
+
 </style>
 </head>
 <body>
-<div id="start-screen" aria-label="Money Factory">
+<div id="start-screen" aria-label="Money Factory" data-i18n-attr="aria-label:start.title">
   <div class="start-card">
     <div class="start-mark">$</div>
-    <div class="start-title">Money Factory</div>
+    <div class="start-title" data-i18n="start.title">Money Factory</div>
     <div class="start-rule"></div>
-    <button id="start-play" class="start-play" type="button">PLAY <span>›</span></button>
+    <button id="start-play" class="start-play" type="button"><span data-i18n="start.play">PLAY</span> <span>›</span></button>
   </div>
 </div>
+
+<div id="rotate-overlay" class="rotate-overlay hidden" aria-hidden="true"><div class="rotate-card"><div class="rotate-icon">↻</div><div data-i18n="orientation.rotate">Please rotate your device to landscape</div></div></div>
 
 <div id="app" class="game-hidden">
 
@@ -1158,7 +1165,10 @@ window.Game.ZoneContent = {
             "fishSpawned": 0
           },
           "nameKey": "mechanic.oceanStrandedFish.name",
-          "descriptionKey": "mechanic.oceanStrandedFish.desc"
+          "descriptionKey": "mechanic.oceanStrandedFish.desc",
+          "ui": {
+            "catalog": "species"
+          }
         }
       ],
       "secrets": [
@@ -1567,7 +1577,8 @@ window.Game.AudioContent = {
     // Automation branch
     { id: "t_auto_1", branch: "automation", nameKey: "tech.auto1.name", cost: 1, researchCost: 100, effect: { type: "powerDiscount", value: 0.1 }, requires: [] },
     { id: "t_auto_2", branch: "automation", nameKey: "tech.auto2.name", cost: 2, researchCost: 200, effect: { type: "collectorSpeedMult", value: 0.15 }, requires: ["t_auto_1"] },
-    { id: "t_auto_4", branch: "automation", nameKey: "tech.auto4.name", cost: 5, researchCost: 500, effect: { type: "rndRateMult", value: 0.25 }, requires: ["t_auto_2"] },
+    { id: "t_auto_3", branch: "automation", nameKey: "tech.auto3.name", cost: 3, researchCost: 300, effect: { type: "collectorSpeedMult", value: 0.20 }, requires: ["t_auto_2"] },
+    { id: "t_auto_4", branch: "automation", nameKey: "tech.auto4.name", cost: 5, researchCost: 500, effect: { type: "rndRateMult", value: 0.25 }, requires: ["t_auto_3"] },
     { id: "t_auto_5", branch: "automation", nameKey: "tech.auto5.name", cost: 8, researchCost: 800, effect: { type: "powerDiscount", value: 0.15 }, requires: ["t_auto_4"] },
     // Economy branch
     { id: "t_econ_1", branch: "economy", nameKey: "tech.econ1.name", cost: 1, researchCost: 100, effect: { type: "upgradeDiscount", value: 0.08 }, requires: [] },
@@ -1803,6 +1814,7 @@ window.Game.AudioContent = {
       "tech.prod5.name": "Overclocked Motors",
       "tech.auto1.name": "Energy Efficiency",
       "tech.auto2.name": "Swift Collectors",
+      "tech.auto3.name": "Hyper Collectors",
       "tech.auto4.name": "Lab Grants",
       "tech.auto5.name": "Smart Grid",
       "tech.econ1.name": "Bulk Discounts",
@@ -1854,6 +1866,8 @@ window.Game.AudioContent = {
       "common.used": "used",
       "common.cyclesPerSec": "cyc/s",
       "orientation.rotate": "Please rotate your device to landscape",
+      "start.title": "Money Factory",
+      "start.play": "PLAY",
       "background.downtown.name": "Downtown",
       "background.ocean.name": "Ocean",
     },
@@ -2044,6 +2058,7 @@ window.Game.AudioContent = {
       "tech.prod5.name": "Motores Sobrecargados",
       "tech.auto1.name": "Eficiencia Energética",
       "tech.auto2.name": "Recolectores Rápidos",
+      "tech.auto3.name": "Recolectores Hiperactivos",
       "tech.auto4.name": "Subvenciones del Laboratorio",
       "tech.auto5.name": "Red Inteligente",
       "tech.econ1.name": "Descuentos por Volumen",
@@ -2090,6 +2105,8 @@ window.Game.AudioContent = {
       "common.used": "usado",
       "common.cyclesPerSec": "ciclos/s",
       "orientation.rotate": "Gira tu dispositivo al modo horizontal",
+      "start.title": "Fábrica de Dinero",
+      "start.play": "JUGAR",
       "background.downtown.name": "Centro",
       "background.ocean.name": "Océano",
     },
@@ -2291,6 +2308,7 @@ window.Game.AudioContent = {
       "tech.prod5.name": "Động Cơ Ép Xung",
       "tech.auto1.name": "Hiệu Suất Năng Lượng",
       "tech.auto2.name": "Máy Thu Nhanh",
+      "tech.auto3.name": "Máy Thu Siêu Tốc",
       "tech.auto4.name": "Tài Trợ Phòng Lab",
       "tech.auto5.name": "Lưới Điện Thông Minh",
       "tech.econ1.name": "Giảm Giá Sỉ",
@@ -2342,6 +2360,8 @@ window.Game.AudioContent = {
       "common.used": "đã dùng",
       "common.cyclesPerSec": "chu kỳ/giây",
       "orientation.rotate": "Vui lòng xoay thiết bị sang chế độ ngang",
+      "start.title": "Nhà Máy Tiền",
+      "start.play": "CHƠI",
     },
 
     id: {
@@ -2542,6 +2562,7 @@ window.Game.AudioContent = {
       "tech.prod5.name": "Motor Overclock",
       "tech.auto1.name": "Efisiensi Energi",
       "tech.auto2.name": "Pengumpul Cepat",
+      "tech.auto3.name": "Pengumpul Super Cepat",
       "tech.auto4.name": "Hibah Laboratorium",
       "tech.auto5.name": "Jaringan Cerdas",
       "tech.econ1.name": "Diskon Grosir",
@@ -2593,6 +2614,8 @@ window.Game.AudioContent = {
       "common.used": "terpakai",
       "common.cyclesPerSec": "siklus/dtk",
       "orientation.rotate": "Putar perangkat ke mode lanskap",
+      "start.title": "Pabrik Uang",
+      "start.play": "MAIN",
     },
   };
 
@@ -2656,7 +2679,7 @@ window.Game.AudioContent = {
   "use strict";
   const D = G.DATA;
 
-  const SAVE_VERSION = 6;
+  const SAVE_VERSION = 7;
 
   function makeEmptyGrid() {
     const slots = [];
@@ -2696,11 +2719,15 @@ window.Game.AudioContent = {
       if (!Object.prototype.hasOwnProperty.call(source, key)) return;
       const declared = definition[key];
       const loaded = source[key];
-      if (isPlainObject(declared) && isPlainObject(loaded)) {
-        mergeDeclaredObject(target[key], loaded, declared);
-      } else if (Array.isArray(declared) && Array.isArray(loaded)) {
-        target[key] = cloneJson(loaded);
-      } else if (loaded === null || typeof loaded === "string" || typeof loaded === "boolean" || (typeof loaded === "number" && isFinite(loaded))) {
+      if (isPlainObject(declared)) {
+        if (isPlainObject(loaded)) mergeDeclaredObject(target[key], loaded, declared);
+      } else if (Array.isArray(declared)) {
+        if (Array.isArray(loaded)) target[key] = cloneJson(loaded);
+      } else if (declared === null) {
+        if (loaded === null) target[key] = null;
+      } else if (typeof declared === "number") {
+        if (typeof loaded === "number" && isFinite(loaded)) target[key] = loaded;
+      } else if (typeof loaded === typeof declared) {
         target[key] = loaded;
       }
     });
@@ -2818,8 +2845,16 @@ window.Game.AudioContent = {
         if (typeof loaded.skills.points === "number" && isFinite(loaded.skills.points)) out.skills.points = Math.max(0, Math.floor(loaded.skills.points));
         if (typeof loaded.skills.onlineSeconds === "number" && isFinite(loaded.skills.onlineSeconds)) out.skills.onlineSeconds = Math.max(0, loaded.skills.onlineSeconds);
         if (loaded.skills.tech && typeof loaded.skills.tech === "object") {
+          const legacyTech = loaded.skills.tech;
+          const hadPreV7Auto4 = legacyTech.t_auto_4 === true;
+          const hadPreV7Auto5 = legacyTech.t_auto_5 === true;
           D.TECH_TREE.forEach((t) => {
-            if (loaded.skills.tech[t.id] && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
+            let owned = legacyTech[t.id] === true;
+            // v6 had no t_auto_3. A v6 save that already owned auto-4/5 is
+            // migrated to the new sequential chain without losing the unlock.
+            if (t.id === "t_auto_3" && (hadPreV7Auto4 || hadPreV7Auto5)) owned = true;
+            if (t.id === "t_auto_4" && hadPreV7Auto5) owned = true;
+            if (owned && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
           });
         }
       } else if (oldPrestige) {
@@ -2827,8 +2862,14 @@ window.Game.AudioContent = {
         // old Rebirth counter and reset behavior. New points come from online time.
         if (typeof oldPrestige.perkPoints === "number" && isFinite(oldPrestige.perkPoints)) out.skills.points = Math.max(0, Math.floor(oldPrestige.perkPoints));
         if (oldPrestige.tech && typeof oldPrestige.tech === "object") {
+          const legacyTech = oldPrestige.tech;
+          const hadPreV7Auto4 = legacyTech.t_auto_4 === true;
+          const hadPreV7Auto5 = legacyTech.t_auto_5 === true;
           D.TECH_TREE.forEach((t) => {
-            if (oldPrestige.tech[t.id] && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
+            let owned = legacyTech[t.id] === true;
+            if (t.id === "t_auto_3" && (hadPreV7Auto4 || hadPreV7Auto5)) owned = true;
+            if (t.id === "t_auto_4" && hadPreV7Auto5) owned = true;
+            if (owned && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
           });
         }
       }
@@ -2993,6 +3034,7 @@ window.Game.AudioContent = {
     } catch (e) {
       console.error("Save sanitize error, falling back to safe defaults for affected fields:", e);
     }
+    out.saveVersion = SAVE_VERSION;
     return out;
   }
 
@@ -3023,7 +3065,8 @@ window.Game.AudioContent = {
 (function (G) {
   "use strict";
 
-  const SAVE_KEY = "moneyFactoryTycoon.save.v1";
+  const SAVE_KEY = "moneyFactoryTycoon.save";
+  const LEGACY_SAVE_KEYS = ["moneyFactoryTycoon.save.v1"];
   const AUTOSAVE_INTERVAL_SEC = 20;
 
   function isStorageAvailable() {
@@ -3040,10 +3083,16 @@ window.Game.AudioContent = {
   const storageAvailable = isStorageAvailable();
 
   function save(state) {
-    if (!storageAvailable) return false;
+    if (!storageAvailable || !state || typeof state !== "object") return false;
+    const criticalNumbers = ["money", "totalEarned", "lifetimeEarned", "maxMoney", "research"];
+    if (criticalNumbers.some((key) => typeof state[key] !== "number" || !Number.isFinite(state[key]))) {
+      console.warn("Save skipped because a critical numeric field is invalid; preserving the previous save.");
+      return false;
+    }
     try {
       state.lastSaveTime = Date.now();
       const json = JSON.stringify(state);
+      if (!json) return false;
       window.localStorage.setItem(SAVE_KEY, json);
       return true;
     } catch (e) {
@@ -3052,16 +3101,33 @@ window.Game.AudioContent = {
     }
   }
 
+  function migrateRawSave(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const versionValue = Number(raw.saveVersion);
+    const version = Number.isFinite(versionValue) && versionValue > 0 ? Math.floor(versionValue) : 1;
+    if (version > G.State.SAVE_VERSION) return null;
+    const migrated = JSON.parse(JSON.stringify(raw));
+    // Historical saves are intentionally normalized through the current sanitizer.
+    // Version gates live here so future schema changes have an explicit migration home.
+    migrated.saveVersion = G.State.SAVE_VERSION;
+    return migrated;
+  }
+
   function loadRaw() {
     if (!storageAvailable) return null;
-    try {
-      const json = window.localStorage.getItem(SAVE_KEY);
-      if (!json) return null;
-      return JSON.parse(json);
-    } catch (e) {
-      console.error("Save data corrupt, ignoring and using defaults:", e);
-      return null;
+    const keys = [SAVE_KEY, ...LEGACY_SAVE_KEYS];
+    for (const key of keys) {
+      try {
+        const json = window.localStorage.getItem(key);
+        if (!json) continue;
+        const raw = JSON.parse(json);
+        const migrated = migrateRawSave(raw);
+        if (migrated) return migrated;
+      } catch (e) {
+        console.error("Save data corrupt, ignoring candidate:", key, e);
+      }
     }
+    return null;
   }
 
   // Returns { state, isNewGame }
@@ -3074,7 +3140,9 @@ window.Game.AudioContent = {
 
   function hardReset() {
     if (storageAvailable) {
-      try { window.localStorage.removeItem(SAVE_KEY); } catch (e) { /* ignore */ }
+      try {
+        [SAVE_KEY, ...LEGACY_SAVE_KEYS].forEach((key) => window.localStorage.removeItem(key));
+      } catch (e) { /* ignore */ }
     }
     return G.State.defaultState();
   }
@@ -3087,11 +3155,27 @@ window.Game.AudioContent = {
     }
   }
 
+  function isLikelySave(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+    const hasSkills = raw.skills && typeof raw.skills === "object" && !Array.isArray(raw.skills);
+    const hasLegacyProgress = raw.prestige && typeof raw.prestige === "object" && !Array.isArray(raw.prestige);
+    const hasRooms = raw.rooms && typeof raw.rooms === "object" && !Array.isArray(raw.rooms);
+    return typeof raw.money === "number" && Number.isFinite(raw.money)
+      && Array.isArray(raw.zones)
+      && raw.settings && typeof raw.settings === "object" && !Array.isArray(raw.settings)
+      && (hasSkills || hasLegacyProgress)
+      && hasRooms;
+  }
+
   function importSave(base64) {
     try {
+      if (typeof base64 !== "string" || !base64.trim()) return null;
       const json = decodeURIComponent(escape(atob(base64.trim())));
       const raw = JSON.parse(json);
-      return G.State.sanitizeState(raw);
+      if (!isLikelySave(raw)) return null;
+      const migrated = migrateRawSave(raw);
+      if (!migrated) return null;
+      return G.State.sanitizeState(migrated);
     } catch (e) {
       console.error("Import failed:", e);
       return null;
@@ -3099,8 +3183,8 @@ window.Game.AudioContent = {
   }
 
   G.Save = {
-    SAVE_KEY, AUTOSAVE_INTERVAL_SEC, storageAvailable,
-    save, load, loadRaw, hardReset, exportSave, importSave,
+    SAVE_KEY, LEGACY_SAVE_KEYS, AUTOSAVE_INTERVAL_SEC, storageAvailable,
+    save, load, loadRaw, hardReset, exportSave, importSave, isLikelySave,
   };
 })(window.Game = window.Game || {});
 
@@ -3314,17 +3398,37 @@ window.Game.AudioContent = {
 
   // ---- Formatting -----------------------------------------------------------
   const SUFFIXES = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
-  function formatMoney(n) {
-    if (n === null || n === undefined || !isFinite(n)) return "0";
-    const sign = n < 0 ? "-" : "";
-    n = Math.abs(n);
-    if (n < 1000) return sign + (Math.floor(n * 100) / 100).toString();
-    let tier = 0;
-    while (n >= 1000 && tier < SUFFIXES.length - 1) { n /= 1000; tier++; }
-    if (tier === SUFFIXES.length - 1 && n >= 1000) return sign + n.toExponential(2).replace("e+", "e");
-    const decimals = n < 10 ? 2 : n < 100 ? 1 : 0;
-    const fixed = parseFloat(n.toFixed(decimals)); // trims trailing zeros (1.50 -> 1.5, 2.00 -> 2)
-    return sign + fixed + SUFFIXES[tier];
+  function formatMoney(value) {
+    if (value === null || value === undefined) return "0";
+    const original = Number(value);
+    if (!Number.isFinite(original)) return "0";
+    const sign = original < 0 ? "-" : "";
+    let n = Math.abs(original);
+    if (n < 1000) {
+      const fixed = Number(n.toFixed(2));
+      return sign + String(fixed);
+    }
+
+    let tier = Math.floor(Math.log10(n) / 3);
+    tier = Math.max(1, Math.min(tier, SUFFIXES.length - 1));
+
+    // Beyond the largest named suffix, keep the original magnitude in scientific notation.
+    if (Math.floor(Math.log10(n) / 3) >= SUFFIXES.length) {
+      return sign + n.toExponential(2).replace("e+", "e");
+    }
+
+    let scaled = n / Math.pow(1000, tier);
+    let decimals = scaled < 10 ? 2 : scaled < 100 ? 1 : 0;
+    let rounded = Number(scaled.toFixed(decimals));
+
+    // Prevent boundary values such as 999,999 from becoming "1000K".
+    if (rounded >= 1000 && tier < SUFFIXES.length - 1) {
+      tier += 1;
+      scaled = n / Math.pow(1000, tier);
+      decimals = scaled < 10 ? 2 : scaled < 100 ? 1 : 0;
+      rounded = Number(scaled.toFixed(decimals));
+    }
+    return sign + String(rounded) + SUFFIXES[tier];
   }
 
   function formatTime(seconds) {
@@ -3382,6 +3486,22 @@ window.Game.AudioContent = {
 
   function isPlainObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
   function cloneJson(value) { try { return JSON.parse(JSON.stringify(value)); } catch (_e) { return {}; } }
+  const readonlyProxyCache = new WeakMap();
+  function readonlyView(value) {
+    if (!value || typeof value !== "object") return value;
+    if (readonlyProxyCache.has(value)) return readonlyProxyCache.get(value);
+    const proxy = new Proxy(value, {
+      get(target, prop, receiver) {
+        return readonlyView(Reflect.get(target, prop, receiver));
+      },
+      set() { return false; },
+      defineProperty() { return false; },
+      deleteProperty() { return false; },
+      setPrototypeOf() { return false; },
+    });
+    readonlyProxyCache.set(value, proxy);
+    return proxy;
+  }
   function deepFreeze(value) {
     if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
     Object.getOwnPropertyNames(value).forEach((key) => deepFreeze(value[key]));
@@ -3564,6 +3684,7 @@ window.Game.AudioContent = {
       this.id = def.id;
       this.script = def.script || null;
       this.config = deepFreeze(cloneJson(isPlainObject(def.config) ? def.config : {}));
+      this.ui = deepFreeze(cloneJson(isPlainObject(def.ui) ? def.ui : {}));
     }
     onAttach(_ctx) {}
     onZoneUnlocked(_ctx) {}
@@ -3602,7 +3723,13 @@ window.Game.AudioContent = {
       return next;
     }
     emit(ctx, type, payload) { return ctx && typeof ctx.emit === "function" ? ctx.emit(type, payload) : false; }
-    emitUI(ctx, spec) { return ctx && typeof ctx.emitUI === "function" ? ctx.emitUI(spec) : false; }
+    emitUI(ctx, spec) {
+      let resolved = spec;
+      if (typeof spec === "string" && this.ui && isPlainObject(this.ui.events) && this.ui.events[spec]) {
+        resolved = this.ui.events[spec];
+      }
+      return ctx && typeof ctx.emitUI === "function" ? ctx.emitUI(resolved) : false;
+    }
     discover(ctx, secretId) { return ctx && typeof ctx.discoverSecret === "function" ? ctx.discoverSecret(secretId) : false; }
     hasTag(machine, tag) { return !!(machine && Array.isArray(machine.tags) && machine.tags.includes(tag)); }
   }
@@ -3813,15 +3940,31 @@ window.Game.AudioContent = {
     }
 
     context(mechanic, extra) {
+      const input = Object.assign({}, extra || {});
+      // Events are only writable through emit()/emitUI(); never hand the mutable
+      // array to a mechanic directly. Domain objects exposed for reads are proxy
+      // protected so accidental writes throw in strict mode instead of bypassing Core.
+      delete input.events;
+      delete input.state;
+      delete input.zoneDef;
+      delete input.zoneState;
+      delete input.zoneVariables;
+      delete input.mechanics;
+      delete input.floor;
+      delete input.slot;
+      delete input.machine;
       return Object.assign({
         game: buildMechanicGameView(this.state),
-        state: this.state,
+        state: readonlyView(this.state),
         zoneId: this.zoneDef.id,
-        zoneDef: this.zoneDef,
-        zoneState: this.zoneState,
-        zoneVariables: this.zoneState.variables,
-        mechanic,
-        mechanics: this.zoneState.mechanicState,
+        zoneDef: readonlyView(this.zoneDef),
+        zoneState: readonlyView(this.zoneState),
+        zoneVariables: readonlyView(this.zoneState.variables),
+        mechanic: readonlyView(mechanic),
+        mechanics: readonlyView(this.zoneState.mechanicState),
+        floor: readonlyView(extra && extra.floor),
+        slot: readonlyView(extra && extra.slot),
+        machine: readonlyView(extra && extra.machine),
         mechanicStateFor: (id) => {
           if (!isPlainObject(this.zoneState.mechanicState[id]) && !Array.isArray(this.zoneState.mechanicState[id])) this.zoneState.mechanicState[id] = {};
           return this.zoneState.mechanicState[id];
@@ -3833,7 +3976,7 @@ window.Game.AudioContent = {
           G.Factory.grantMoney(this.state, value);
           return true;
         },
-        emit: (type, payload) => emitSafeEvent(extra && extra.events, type, Object.assign({ zoneId: this.zoneDef.id }, payload || {})),
+        emit: (type, payload) => emitSafeEvent(extra && extra.events, type, Object.assign({}, payload || {}, { zoneId: this.zoneDef.id, mechanicId: mechanic.id })),
         emitUI: (spec) => isMechanicUiVisible(this.zoneDef, this.zoneState, mechanic.id)
           ? emitMechanicUiSafe(extra && extra.events, this.zoneDef.id, mechanic.id, spec)
           : false,
@@ -3842,7 +3985,7 @@ window.Game.AudioContent = {
         requirementsMet: (reqs) => requirementsMet(this.state, reqs, this.zoneDef.id),
         machineUnlocked: (machineId) => isMachineUnlocked(this.state, machineId),
         canPlaceMachine: (machineId, targetZoneId) => canPlaceMachineInZone(this.state, machineId, targetZoneId || this.zoneDef.id),
-      }, extra || {});
+      }, input);
     }
 
     call(instance, method, ctx, args) {
@@ -4475,6 +4618,12 @@ window.Game.AudioContent = {
     checkMechanicDiscoveries(state, zoneId, events);
   }
   function checkAllSecrets(state, events) { (state.zones || []).forEach((zone) => { if (zone.unlocked) checkSecrets(state, zone.id, events); }); }
+  function getZoneMechanicDef(zoneId, mechanicId) {
+    const zoneDef = getZoneDef(zoneId);
+    if (!zoneDef || typeof mechanicId !== "string") return null;
+    return (zoneDef.mechanics || []).find((item) => item && item.id === mechanicId) || null;
+  }
+
   function getZoneSecrets(state, zoneId) {
     const def = getZoneDef(zoneId), zone = getZoneState(state, zoneId);
     if (!def || !zone) return [];
@@ -4489,7 +4638,7 @@ window.Game.AudioContent = {
     const runtime = getRuntime(state, zoneId);
     if (!runtime) return out;
     const uiSnapshot = buildUiStateSnapshot(state);
-    const calculationState = cloneJson(state);
+    const calculationState = uiSnapshot;
     for (const def of runtime.defs()) {
       if (!def || def.enabled === false || !isMechanicUiVisible(zoneDef, zoneState, def.id)) continue;
       const mechanic = runtime.instances.get(def.id);
@@ -4544,6 +4693,7 @@ window.Game.AudioContent = {
     discoverSecret,
     checkSecrets,
     getZoneSecrets,
+    getZoneMechanicDef,
     discoverMechanic,
     checkMechanicDiscoveries,
     getZoneMechanics,
@@ -5245,6 +5395,8 @@ window.Game.AudioContent = {
         unlocked: !!zone.unlocked,
         floorCount: Array.isArray(zone.floors) ? zone.floors.length : 0,
         unlockedMachineCount: Array.isArray(zone.unlockedMachineIds) ? zone.unlockedMachineIds.length : 0,
+        occupiedMachineCount: Array.isArray(zone.floors) ? zone.floors.reduce((sum, floor) => sum + (Array.isArray(floor.grid) ? floor.grid.filter((slot) => slot && slot.machine).length : 0), 0) : 0,
+        gridCapacity: Array.isArray(zone.floors) ? zone.floors.reduce((sum, floor) => sum + (Array.isArray(floor.grid) ? floor.grid.length : 0), 0) : 24,
         secretCount: Array.isArray(zone.secrets) ? zone.secrets.length : 0,
         stats: isPlainObject(zone.stats) ? Object.assign({}, zone.stats) : {},
       } : null,
@@ -5471,7 +5623,8 @@ window.Game.AudioContent = {
     updateActivity(ctx) {
       const stateView = ctx && ctx.stateView ? ctx.stateView : null;
       const zone = stateView && stateView.zone ? stateView.zone : null;
-      const machines = clamp(finite(zone && zone.unlockedMachineCount, 0) / 8, 0, 1);
+      const capacity = Math.max(1, finite(zone && zone.gridCapacity, 24));
+      const machines = clamp(finite(zone && zone.occupiedMachineCount, 0) / capacity, 0, 1);
       setVar(this.element, "--ocean-activity", machines.toFixed(3));
     }
 
@@ -5968,7 +6121,7 @@ window.Game.AudioContent = {
     [0, 0.07, 0.14].forEach((d, i) => tone({ freq: 440 + i * 160, type: "square", dur: 0.09, gain: 0.16, delay: d }));
   }
   function sfxUnlock() {
-    [0, 0.09, 0.18, 0.27].forEach((d, i) => tone({ freq: 392 * Math.pow(2, i / 12) * 2, type: "triangle", dur: 0.15, gain: 0.18, delay: d }));
+    [0, 4, 7, 12].forEach((semitones, i) => tone({ freq: 392 * Math.pow(2, semitones / 12) * 2, type: "triangle", dur: 0.15, gain: 0.18, delay: i * 0.09 }));
   }
   function sfxError() { tone({ freq: 180, type: "sawtooth", dur: 0.18, gain: 0.18, slideTo: 90 }); }
   function sfxTechUnlock() { tone({ freq: 300, type: "sine", dur: 0.25, gain: 0.16, slideTo: 900 }); }
@@ -6097,7 +6250,7 @@ window.Game.AudioContent = {
   }
 
   function startSynthMusic() {
-    if (musicTimer || !musicEnabled || externalMusicSpec) return;
+    if (musicTimer || !musicEnabled || externalMusicSpec || !unlocked) return;
     const c = ensureCtx();
     if (!c) return;
     musicTimer = setInterval(scheduleMusicStep, 260);
@@ -6144,15 +6297,18 @@ window.Game.AudioContent = {
   function disposeExternalMusic({ fade = 0 } = {}) {
     const node = externalMusic;
     if (!node) return;
-    const finish = () => {
-      try { node.pause(); node.currentTime = 0; } catch (_) {}
-    };
-    if (fade > 0 && !node.paused) fadeElement(node, 0, fade, finish);
-    else finish();
-    node.src = "";
+
+    // Detach the current-track refs immediately. The old element may continue
+    // fading out independently while a new external track or synth fallback starts.
     externalMusic = null;
     externalMusicRef = null;
     externalMusicSpec = null;
+
+    const release = () => {
+      try { node.pause(); node.currentTime = 0; node.src = ""; node.load?.(); } catch (_) {}
+    };
+    if (fade > 0 && !node.paused) fadeElement(node, 0, fade, release);
+    else release();
   }
 
   function setMusicTrack(ref) {
@@ -7061,13 +7217,21 @@ window.Game.AudioContent = {
   }
 
   function onKeyDown(e) {
+    if (e.code === "Escape") {
+      callbacks.onEscape && callbacks.onEscape();
+      clearKeys();
+      e.preventDefault();
+      return;
+    }
     if (isTypingTarget(e.target)) return;
     if (callbacks.isInputBlocked && callbacks.isInputBlocked()) return;
-    keys[e.code] = true;
     if (e.code === "Space") {
+      if (e.repeat || isInteractiveTarget(e.target)) return;
       e.preventDefault();
       callbacks.onCollectNearest && callbacks.onCollectNearest();
+      return;
     }
+    keys[e.code] = true;
     const numMatch = e.code.match(/^Digit([1-8])$/);
     if (numMatch) {
       callbacks.onSelectTierIndex && callbacks.onSelectTierIndex(parseInt(numMatch[1], 10) - 1);
@@ -7078,8 +7242,12 @@ window.Game.AudioContent = {
   function isTypingTarget(el) {
     return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
   }
+  function isInteractiveTarget(el) {
+    return !!(el && (el.closest?.("button, a, [role=button], select, summary") || el.tagName === "BUTTON"));
+  }
 
   function onMouseDown(e) {
+    if (e.button !== 0) return;
     dragging = true; dragMoved = false;
     lastPointer = { x: e.clientX, y: e.clientY };
   }
@@ -7103,6 +7271,7 @@ window.Game.AudioContent = {
     lastPointer = { x: e.clientX, y: e.clientY };
   }
   function onMouseUp(e) {
+    if (e.button !== 0) return;
     if (dragging && !dragMoved && e.target === canvas) {
       const rect = canvas.getBoundingClientRect();
       const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
@@ -7114,7 +7283,8 @@ window.Game.AudioContent = {
   function onWheel(e) {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
-    const factor = Math.exp(-e.deltaY * 0.0012);
+    const unitScale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? rect.height : 1;
+    const factor = Math.exp(-e.deltaY * unitScale * 0.0012);
     zoomAt(camera.zoom * factor, e.clientX - rect.left, e.clientY - rect.top, rect);
   }
   function zoomAt(newZoom, screenX, screenY, rect) {
@@ -7312,7 +7482,6 @@ window.Game.AudioContent = {
 
 
   const oceanFishDecorationNodes = new Map();
-  const SAFE_FISH_VARIANTS = new Set(["tide_minnow", "glassfin_darter", "moonspot_koi", "abyssal_glowfish", "crown_sea_dragon"]);
 
   function fishDecorationMarkup() {
     return `<span class="fish-shadow"></span><span class="fish-art"><span class="fish-tail"></span><span class="fish-fin fish-fin--top"></span><span class="fish-fin fish-fin--bottom"></span><span class="fish-body"><span class="fish-gill"></span><span class="fish-eye"><i></i></span><span class="fish-mouth"></span><span class="fish-mark fish-mark--1"></span><span class="fish-mark fish-mark--2"></span><span class="fish-mark fish-mark--3"></span><span class="fish-highlight"></span></span><span class="fish-splash fish-splash--1"></span><span class="fish-splash fish-splash--2"></span><span class="fish-splash fish-splash--3"></span><span class="fish-splash fish-splash--4"></span><span class="fish-splash fish-splash--5"></span><span class="fish-wet-shine"></span></span>`;
@@ -7324,7 +7493,9 @@ window.Game.AudioContent = {
     const decorations = (mechanicUi && mechanicUi.machineDecorations) || [];
     const activeKeys = new Set();
     decorations.forEach((item) => {
-      if (!item || item.visual !== "fish" || !SAFE_FISH_VARIANTS.has(item.variant)) return;
+      const fishDef = oceanFishMechanicDef();
+      const validFishIds = new Set(fishDef && fishDef.config && Array.isArray(fishDef.config.species) ? fishDef.config.species.map((fish) => fish && fish.id).filter(Boolean) : []);
+      if (!item || item.visual !== "fish" || !validFishIds.has(item.variant)) return;
       const key = [item.floorId, item.r, item.c, item.decorationId].join(":");
       activeKeys.add(key);
       let node = oceanFishDecorationNodes.get(key);
@@ -7358,13 +7529,26 @@ window.Game.AudioContent = {
   }
 
   function oceanFishMechanicDef() {
-    const def = D.zoneById("zone_ocean");
-    return def && Array.isArray(def.mechanics) ? def.mechanics.find((m) => m && m.id === "ocean_stranded_fish") : null;
+    for (const zone of D.ZONES || []) {
+      for (const mechanic of zone.mechanics || []) {
+        if (mechanic && mechanic.ui && mechanic.ui.catalog === "species") return mechanic;
+      }
+    }
+    return null;
+  }
+
+  function oceanFishZoneDef() {
+    const mechanic = oceanFishMechanicDef();
+    return mechanic ? D.ZONES.find((zone) => (zone.mechanics || []).some((item) => item && item.id === mechanic.id)) || null : null;
   }
 
   function oceanFishSecretRequirementMet() {
-    if (!state || state.currentZoneId !== "zone_ocean" || !G.Zone) return false;
-    return G.Zone.requirementMet(state, { type: "secretDiscovered", secretId: "ocean_stranded_signal", value: 1, op: "gte" }, "zone_ocean");
+    if (!state || !G.Zone) return false;
+    const zoneDef = oceanFishZoneDef();
+    const mechanic = oceanFishMechanicDef();
+    if (!zoneDef || !mechanic || state.currentZoneId !== zoneDef.id) return false;
+    const requirements = mechanic.visibility && Array.isArray(mechanic.visibility.requirements) ? mechanic.visibility.requirements : [];
+    return requirements.length > 0 && G.Zone.requirementsMet(state, requirements, zoneDef.id);
   }
 
   function fishImageMarkup(speciesId) {
@@ -7380,9 +7564,9 @@ window.Game.AudioContent = {
     wireModalClose();
   }
 
-  function refreshMechanicIndicators() {
+  function refreshMechanicIndicators(uiOverride) {
     if (!els.mechanicIndicators || !state || !G.Zone) return;
-    const ui = G.Zone.getMechanicUIState(state, state.currentZoneId, state.currentFloorId);
+    const ui = uiOverride || G.Zone.getMechanicUIState(state, state.currentZoneId, state.currentFloorId);
     const indicators = ui.zoneIndicators || [];
     els.mechanicIndicators.innerHTML = indicators.map((item) => {
       const tone = item.tone || "info";
@@ -7410,7 +7594,7 @@ window.Game.AudioContent = {
     }
   }
 
-  function refreshHUD() {
+  function refreshHUD(mechanicUi) {
     els.moneyVal.textContent = money(state.money);
     const mps = G.Zone.computeMps(state);
     els.mpsVal.textContent = mps > 0 ? "+" + E.formatMoney(mps) + G.i18n.t("hud.perSec") : "";
@@ -7432,7 +7616,7 @@ window.Game.AudioContent = {
     if (zoneDef) els.zoneName.textContent = G.i18n.t(zoneDef.nameKey);
     if (floorDef) els.floorName.textContent = G.i18n.t(floorDef.nameKey);
     els.dotTech.classList.toggle("show", (state.skills.points || 0) > 0);
-    refreshMechanicIndicators();
+    refreshMechanicIndicators(mechanicUi);
     refreshOceanFishButton();
   }
 
@@ -7874,8 +8058,10 @@ window.Game.AudioContent = {
     els.modalContent.querySelectorAll("[data-lang]").forEach((btn)=>btn.addEventListener("click",()=>{state.settings.lang=btn.dataset.lang;G.i18n.setLang(btn.dataset.lang);refreshAll();onAfterAction();}));
     $("chk-music").addEventListener("change",(e)=>{state.settings.music=e.target.checked;G.Audio.setMusicEnabled(e.target.checked);onAfterAction();});
     $("chk-sfx").addEventListener("change",(e)=>{state.settings.sfx=e.target.checked;G.Audio.setSfxEnabled(e.target.checked);onAfterAction();});
-    $("range-music").addEventListener("input",(e)=>{state.settings.musicVolume=Number(e.target.value);$("range-music-value").textContent=Math.round(state.settings.musicVolume*100)+"%";G.Audio.setMusicVolume(state.settings.musicVolume);onAfterAction();});
-    $("range-sfx").addEventListener("input",(e)=>{state.settings.sfxVolume=Number(e.target.value);$("range-sfx-value").textContent=Math.round(state.settings.sfxVolume*100)+"%";G.Audio.setSfxVolume(state.settings.sfxVolume);onAfterAction();});
+    $("range-music").addEventListener("input",(e)=>{state.settings.musicVolume=Number(e.target.value);$("range-music-value").textContent=Math.round(state.settings.musicVolume*100)+"%";G.Audio.setMusicVolume(state.settings.musicVolume);});
+    $("range-music").addEventListener("change",()=>onAfterAction());
+    $("range-sfx").addEventListener("input",(e)=>{state.settings.sfxVolume=Number(e.target.value);$("range-sfx-value").textContent=Math.round(state.settings.sfxVolume*100)+"%";G.Audio.setSfxVolume(state.settings.sfxVolume);});
+    $("range-sfx").addEventListener("change",()=>onAfterAction());
     $("btn-export-save").addEventListener("click",async()=>{const code=G.Save.exportSave(state),area=$("save-export-code");area.value=code||"";if(!code)return;area.focus();area.select();try{if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(code);}finally{toast(G.i18n.t("notify.saveExported"));}});
     $("btn-import-save").addEventListener("click",()=>{const code=$("save-import-code").value.trim();if(!code)return;const imported=G.Save.importSave(code);if(!imported){G.Audio.sfxError();toast(G.i18n.t("notify.importFailed"),"warn");return;}onStateImported(imported);});
     $("btn-hard-reset").addEventListener("click",()=>{if(confirm(G.i18n.t("settings.hardResetConfirm")))window.dispatchEvent(new CustomEvent("mft:hardreset"));});
@@ -7916,12 +8102,23 @@ window.Game.AudioContent = {
     const startScreen = document.getElementById("start-screen");
     const playButton = document.getElementById("start-play");
     const app = document.getElementById("app");
+    if (startScreen && !startScreen.classList.contains("hidden")) {
+      try {
+        const preview = G.Save.load();
+        if (preview?.state?.settings?.lang) G.i18n.setLang(preview.state.settings.lang);
+      } catch (_) { /* keep default language on preview failure */ }
+      G.i18n.applyToDom();
+    }
     // The first boot only wires the landing screen. After PLAY hides that screen,
     // the same boot path must continue into the real game initialization instead
     // of wiring another dormant click handler and returning forever.
     if (startScreen && playButton && !startScreen.classList.contains("hidden")) {
       playButton.addEventListener("click", async () => {
         playButton.disabled = true;
+        // PLAY is the first reliable user gesture for mobile browser audio.
+        // Unlock here so BGM/SFX can start without requiring a second tap.
+        audioUnlocked = true;
+        G.Audio.unlock();
         await G.Platform.screen.enterGameMode();
         startScreen.classList.add("hidden");
         app.classList.remove("game-hidden");
@@ -7955,13 +8152,23 @@ window.Game.AudioContent = {
         onSelectTierIndex: handleSelectTierIndex,
         onSelectMachineId: handleSelectMachineId,
         onCollectNearest: handleCollectNearest,
+        onEscape: () => G.UI.closePanel(),
         isInputBlocked: () => G.UI.isInputBlocked(),
       },
     });
 
     G.UI.init(state, { onStateImported: handleImportedState, onAfterAction: () => G.Save.save(state) });
     wireGlobalUi();
-    window.addEventListener("resize", () => G.Render.resize());
+    const rotateOverlay = document.getElementById("rotate-overlay");
+    const updateOrientationOverlay = () => {
+      if (!rotateOverlay) return;
+      const shouldShow = !G.Input.isLandscape() && G.Input.isTouchDevice();
+      rotateOverlay.classList.toggle("hidden", shouldShow ? false : true);
+      rotateOverlay.setAttribute("aria-hidden", String(!shouldShow));
+      if (shouldShow) rotateOverlay.querySelector("[data-i18n]")?.replaceChildren(document.createTextNode(G.i18n.t("orientation.rotate")));
+    };
+    window.addEventListener("resize", () => { G.Render.resize(); updateOrientationOverlay(); });
+    updateOrientationOverlay();
 
     const unlock = () => {
       if (audioUnlocked) return;
@@ -8207,7 +8414,7 @@ window.Game.AudioContent = {
         if (ev.zoneId !== state.currentZoneId || ev.floorId !== state.currentFloorId || !(ev.amount > 0)) return;
         const p = G.Render.slotWorldPos(ev.r, ev.c);
         G.Render.spawnParticle({ kind: "spark", x: p.x, y: p.y - 24, vx: 0, vy: -35, life: 0.7, size: 9, color: "rgba(120,225,255,0.95)" });
-        const mechanic = D.zoneById("zone_ocean")?.mechanics?.find((m) => m.id === "ocean_stranded_fish");
+        const mechanic = ev.mechanicId ? G.Zone.getZoneMechanicDef(ev.zoneId, ev.mechanicId) : null;
         const species = mechanic?.config?.species?.find((fish) => fish.id === ev.speciesId);
         const fishName = species ? G.i18n.t(species.nameKey) : ev.speciesId;
         const caughtLabel = ev.automatic ? G.i18n.t("zoneui.ocean.fishCaughtAuto") : G.i18n.t("zoneui.ocean.fishCaught");
@@ -8223,33 +8430,39 @@ window.Game.AudioContent = {
   G.Main.processEvents = processEvents;
 
   function loop(ts) {
-    if (!lastFrameTime) lastFrameTime = ts;
-    let dt = (ts - lastFrameTime) / 1000;
-    lastFrameTime = ts;
-    dt = Math.max(0, Math.min(0.25, dt));
+    try {
+      if (!lastFrameTime) lastFrameTime = ts;
+      let dt = (ts - lastFrameTime) / 1000;
+      lastFrameTime = ts;
+      dt = Math.max(0, Math.min(0.25, dt));
 
-    G.Input.update(dt);
-    const events = F.tick(state, dt);
-    processEvents(events);
+      G.Input.update(dt);
+      const events = F.tick(state, dt);
+      processEvents(events);
 
-    G.Background.sync(state);
-    G.Background.update(state, dt);
+      G.Background.sync(state);
+      G.Background.update(state, dt);
 
-    const floor = F.currentFloor(state);
-    let bonusKey = null;
-    if (bonusSlot && bonusSlot.zoneId === state.currentZoneId && bonusSlot.floorId === state.currentFloorId) bonusKey = bonusSlot.r + "_" + bonusSlot.c;
-    const mechanicUi = G.Zone.getMechanicUIState(state, state.currentZoneId, state.currentFloorId);
-    G.Render.render(state, floor, dt, bonusKey, mechanicUi);
-    G.UI.refreshMechanicDecorations(mechanicUi);
+      const floor = F.currentFloor(state);
+      let bonusKey = null;
+      if (bonusSlot && bonusSlot.zoneId === state.currentZoneId && bonusSlot.floorId === state.currentFloorId) bonusKey = bonusSlot.r + "_" + bonusSlot.c;
+      const mechanicUi = G.Zone.getMechanicUIState(state, state.currentZoneId, state.currentFloorId);
+      G.Render.render(state, floor, dt, bonusKey, mechanicUi);
+      G.UI.refreshMechanicDecorations(mechanicUi);
 
-    hudAccum += dt;
-    if (hudAccum >= 0.15) {
-      hudAccum = 0;
-      G.UI.refreshHUD();
-      if (G.UI.selectedSlot) G.UI.refreshMachinePanelControls();
-      if (G.UI.isPanelOpen) G.UI.refreshOpenPanel();
+      hudAccum += dt;
+      if (hudAccum >= 0.15) {
+        hudAccum = 0;
+        G.UI.refreshHUD(mechanicUi);
+        if (G.UI.selectedSlot) G.UI.refreshMachinePanelControls();
+        if (G.UI.isPanelOpen) G.UI.refreshOpenPanel();
+      }
+    } catch (error) {
+      console.error("Game loop recovered from error:", error);
+      try { hudAccum = 0; G.UI.refreshHUD(); } catch (_) {}
+    } finally {
+      requestAnimationFrame(loop);
     }
-    requestAnimationFrame(loop);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();

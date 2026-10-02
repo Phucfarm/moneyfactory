@@ -317,7 +317,10 @@ window.Game.ZoneContent = {
             "fishSpawned": 0
           },
           "nameKey": "mechanic.oceanStrandedFish.name",
-          "descriptionKey": "mechanic.oceanStrandedFish.desc"
+          "descriptionKey": "mechanic.oceanStrandedFish.desc",
+          "ui": {
+            "catalog": "species"
+          }
         }
       ],
       "secrets": [

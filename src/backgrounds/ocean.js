@@ -127,7 +127,8 @@
     updateActivity(ctx) {
       const stateView = ctx && ctx.stateView ? ctx.stateView : null;
       const zone = stateView && stateView.zone ? stateView.zone : null;
-      const machines = clamp(finite(zone && zone.unlockedMachineCount, 0) / 8, 0, 1);
+      const capacity = Math.max(1, finite(zone && zone.gridCapacity, 24));
+      const machines = clamp(finite(zone && zone.occupiedMachineCount, 0) / capacity, 0, 1);
       setVar(this.element, "--ocean-activity", machines.toFixed(3));
     }
 

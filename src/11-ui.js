@@ -89,7 +89,6 @@
 
 
   const oceanFishDecorationNodes = new Map();
-  const SAFE_FISH_VARIANTS = new Set(["tide_minnow", "glassfin_darter", "moonspot_koi", "abyssal_glowfish", "crown_sea_dragon"]);
 
   function fishDecorationMarkup() {
     return `<span class="fish-shadow"></span><span class="fish-art"><span class="fish-tail"></span><span class="fish-fin fish-fin--top"></span><span class="fish-fin fish-fin--bottom"></span><span class="fish-body"><span class="fish-gill"></span><span class="fish-eye"><i></i></span><span class="fish-mouth"></span><span class="fish-mark fish-mark--1"></span><span class="fish-mark fish-mark--2"></span><span class="fish-mark fish-mark--3"></span><span class="fish-highlight"></span></span><span class="fish-splash fish-splash--1"></span><span class="fish-splash fish-splash--2"></span><span class="fish-splash fish-splash--3"></span><span class="fish-splash fish-splash--4"></span><span class="fish-splash fish-splash--5"></span><span class="fish-wet-shine"></span></span>`;
@@ -101,7 +100,9 @@
     const decorations = (mechanicUi && mechanicUi.machineDecorations) || [];
     const activeKeys = new Set();
     decorations.forEach((item) => {
-      if (!item || item.visual !== "fish" || !SAFE_FISH_VARIANTS.has(item.variant)) return;
+      const fishDef = oceanFishMechanicDef();
+      const validFishIds = new Set(fishDef && fishDef.config && Array.isArray(fishDef.config.species) ? fishDef.config.species.map((fish) => fish && fish.id).filter(Boolean) : []);
+      if (!item || item.visual !== "fish" || !validFishIds.has(item.variant)) return;
       const key = [item.floorId, item.r, item.c, item.decorationId].join(":");
       activeKeys.add(key);
       let node = oceanFishDecorationNodes.get(key);
@@ -135,13 +136,26 @@
   }
 
   function oceanFishMechanicDef() {
-    const def = D.zoneById("zone_ocean");
-    return def && Array.isArray(def.mechanics) ? def.mechanics.find((m) => m && m.id === "ocean_stranded_fish") : null;
+    for (const zone of D.ZONES || []) {
+      for (const mechanic of zone.mechanics || []) {
+        if (mechanic && mechanic.ui && mechanic.ui.catalog === "species") return mechanic;
+      }
+    }
+    return null;
+  }
+
+  function oceanFishZoneDef() {
+    const mechanic = oceanFishMechanicDef();
+    return mechanic ? D.ZONES.find((zone) => (zone.mechanics || []).some((item) => item && item.id === mechanic.id)) || null : null;
   }
 
   function oceanFishSecretRequirementMet() {
-    if (!state || state.currentZoneId !== "zone_ocean" || !G.Zone) return false;
-    return G.Zone.requirementMet(state, { type: "secretDiscovered", secretId: "ocean_stranded_signal", value: 1, op: "gte" }, "zone_ocean");
+    if (!state || !G.Zone) return false;
+    const zoneDef = oceanFishZoneDef();
+    const mechanic = oceanFishMechanicDef();
+    if (!zoneDef || !mechanic || state.currentZoneId !== zoneDef.id) return false;
+    const requirements = mechanic.visibility && Array.isArray(mechanic.visibility.requirements) ? mechanic.visibility.requirements : [];
+    return requirements.length > 0 && G.Zone.requirementsMet(state, requirements, zoneDef.id);
   }
 
   function fishImageMarkup(speciesId) {
@@ -157,9 +171,9 @@
     wireModalClose();
   }
 
-  function refreshMechanicIndicators() {
+  function refreshMechanicIndicators(uiOverride) {
     if (!els.mechanicIndicators || !state || !G.Zone) return;
-    const ui = G.Zone.getMechanicUIState(state, state.currentZoneId, state.currentFloorId);
+    const ui = uiOverride || G.Zone.getMechanicUIState(state, state.currentZoneId, state.currentFloorId);
     const indicators = ui.zoneIndicators || [];
     els.mechanicIndicators.innerHTML = indicators.map((item) => {
       const tone = item.tone || "info";
@@ -187,7 +201,7 @@
     }
   }
 
-  function refreshHUD() {
+  function refreshHUD(mechanicUi) {
     els.moneyVal.textContent = money(state.money);
     const mps = G.Zone.computeMps(state);
     els.mpsVal.textContent = mps > 0 ? "+" + E.formatMoney(mps) + G.i18n.t("hud.perSec") : "";
@@ -209,7 +223,7 @@
     if (zoneDef) els.zoneName.textContent = G.i18n.t(zoneDef.nameKey);
     if (floorDef) els.floorName.textContent = G.i18n.t(floorDef.nameKey);
     els.dotTech.classList.toggle("show", (state.skills.points || 0) > 0);
-    refreshMechanicIndicators();
+    refreshMechanicIndicators(mechanicUi);
     refreshOceanFishButton();
   }
 
@@ -651,8 +665,10 @@
     els.modalContent.querySelectorAll("[data-lang]").forEach((btn)=>btn.addEventListener("click",()=>{state.settings.lang=btn.dataset.lang;G.i18n.setLang(btn.dataset.lang);refreshAll();onAfterAction();}));
     $("chk-music").addEventListener("change",(e)=>{state.settings.music=e.target.checked;G.Audio.setMusicEnabled(e.target.checked);onAfterAction();});
     $("chk-sfx").addEventListener("change",(e)=>{state.settings.sfx=e.target.checked;G.Audio.setSfxEnabled(e.target.checked);onAfterAction();});
-    $("range-music").addEventListener("input",(e)=>{state.settings.musicVolume=Number(e.target.value);$("range-music-value").textContent=Math.round(state.settings.musicVolume*100)+"%";G.Audio.setMusicVolume(state.settings.musicVolume);onAfterAction();});
-    $("range-sfx").addEventListener("input",(e)=>{state.settings.sfxVolume=Number(e.target.value);$("range-sfx-value").textContent=Math.round(state.settings.sfxVolume*100)+"%";G.Audio.setSfxVolume(state.settings.sfxVolume);onAfterAction();});
+    $("range-music").addEventListener("input",(e)=>{state.settings.musicVolume=Number(e.target.value);$("range-music-value").textContent=Math.round(state.settings.musicVolume*100)+"%";G.Audio.setMusicVolume(state.settings.musicVolume);});
+    $("range-music").addEventListener("change",()=>onAfterAction());
+    $("range-sfx").addEventListener("input",(e)=>{state.settings.sfxVolume=Number(e.target.value);$("range-sfx-value").textContent=Math.round(state.settings.sfxVolume*100)+"%";G.Audio.setSfxVolume(state.settings.sfxVolume);});
+    $("range-sfx").addEventListener("change",()=>onAfterAction());
     $("btn-export-save").addEventListener("click",async()=>{const code=G.Save.exportSave(state),area=$("save-export-code");area.value=code||"";if(!code)return;area.focus();area.select();try{if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(code);}finally{toast(G.i18n.t("notify.saveExported"));}});
     $("btn-import-save").addEventListener("click",()=>{const code=$("save-import-code").value.trim();if(!code)return;const imported=G.Save.importSave(code);if(!imported){G.Audio.sfxError();toast(G.i18n.t("notify.importFailed"),"warn");return;}onStateImported(imported);});
     $("btn-hard-reset").addEventListener("click",()=>{if(confirm(G.i18n.t("settings.hardResetConfirm")))window.dispatchEvent(new CustomEvent("mft:hardreset"));});

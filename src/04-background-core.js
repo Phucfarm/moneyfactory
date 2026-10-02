@@ -90,6 +90,8 @@
         unlocked: !!zone.unlocked,
         floorCount: Array.isArray(zone.floors) ? zone.floors.length : 0,
         unlockedMachineCount: Array.isArray(zone.unlockedMachineIds) ? zone.unlockedMachineIds.length : 0,
+        occupiedMachineCount: Array.isArray(zone.floors) ? zone.floors.reduce((sum, floor) => sum + (Array.isArray(floor.grid) ? floor.grid.filter((slot) => slot && slot.machine).length : 0), 0) : 0,
+        gridCapacity: Array.isArray(zone.floors) ? zone.floors.reduce((sum, floor) => sum + (Array.isArray(floor.grid) ? floor.grid.length : 0), 0) : 24,
         secretCount: Array.isArray(zone.secrets) ? zone.secrets.length : 0,
         stats: isPlainObject(zone.stats) ? Object.assign({}, zone.stats) : {},
       } : null,

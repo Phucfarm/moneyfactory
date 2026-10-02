@@ -631,3 +631,8 @@ html, body {
 .fish-entry-row{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--text-muted)}.fish-entry-row strong{color:#ecffff;font-family:var(--font-display)}.fish-catalog-note{margin-top:11px;padding-top:10px;border-top:1px solid var(--line);color:var(--text-muted);font-size:10px;line-height:1.45}
 @media (max-width:700px){.ocean-fish-encyclopedia{top:auto;bottom:calc(138px + env(safe-area-inset-bottom,0px));right:calc(8px + env(safe-area-inset-right,0px));max-width:170px}#modal-overlay .fish-encyclopedia-grid{grid-template-columns:1fr;gap:9px}#modal-overlay .fish-entry{grid-template-columns:88px minmax(0,1fr);min-height:104px}.fish-entry-art{min-height:82px}.fish-thumb .fish-art{transform:translate(-50%,-50%) rotate(-7deg) scale(.98)}.fish-entry-head b{font-size:11px}.fish-rarity{font-size:7px}.fish-entry-row{font-size:9px}}
 @media (prefers-reduced-motion:reduce){.stranded-fish-decoration.is-flopping .fish-art,.stranded-fish-decoration.is-auto-catching .fish-art,.stranded-fish-decoration .fish-splash{animation:none}}
+
+/* Device orientation guidance: only displayed on touch devices in portrait. */
+.rotate-overlay{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;background:rgba(4,7,11,.96);backdrop-filter:blur(8px);color:var(--text-primary);text-align:center;padding:24px;}
+.rotate-card{width:min(360px,90vw);padding:28px 22px;border:1px solid var(--line-strong);border-radius:14px;background:linear-gradient(180deg,rgba(30,33,40,.98),rgba(20,22,28,.99));box-shadow:0 18px 55px rgba(0,0,0,.5);font-family:var(--font-display);font-size:15px;line-height:1.4;}
+.rotate-icon{font-size:46px;color:var(--accent-brass);margin-bottom:12px;}

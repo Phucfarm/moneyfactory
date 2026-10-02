@@ -6,6 +6,6 @@
   zones.forEach((zone) => (zone.mechanics || []).forEach((mechanic) => {
     if (!mechanic.source || loaded.has(mechanic.source)) return;
     loaded.add(mechanic.source);
-    document.write('<script src="' + String(mechanic.source).replace(/"/g, '&quot;') + '"><\\/script>');
+    document.write('<script src="' + String(mechanic.source).replace(/"/g, '&quot;') + '"></script>');
   }));
 })(window.Game = window.Game || {});

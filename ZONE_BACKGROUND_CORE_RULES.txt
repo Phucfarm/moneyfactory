@@ -103,6 +103,7 @@ SOURCE FILES (EDIT THESE):
 GENERATED FILES (DO NOT EDIT BY HAND):
   src/00-zone-content.js
   src/00-background-content.js
+  src/00-audio-content.js
   dist/index.html
 
 BUILD:
@@ -699,6 +700,10 @@ RULES FOR UI SAFETY / FREEDOM:
     Mechanics become eligible for state-derived UI after normal runtime attachment.
 12. `getUIState` receives a read-only runtime-instance view. It MUST NOT mutate
     `this` runtime fields as a side channel for gameplay state.
+13. Gameplay mechanic contexts expose read-only views for live state, Zone state,
+    Zone definition, floor, slot, machine and mechanic maps. Mutable persistent
+    changes must go through the documented Core APIs (`mechanicStateFor`,
+    `setVariable`, `setState`, `rewardCash`, `emit`, etc.).
 
 Example:
   class TideMechanic extends G.Zone.ZoneMechanic {
@@ -739,6 +744,11 @@ UI EXECUTION BOUNDARY:
 Do not use the UI as a hidden second state machine. The mechanic state remains
 under state.zones[].mechanicState[mechanicId].
 
+GENERIC REQUIREMENT CONTRACT:
+Every generic requirement has a numeric `value` and an optional comparison
+operator. Content validation must reject missing or non-numeric values so a
+requirement cannot silently become an unreachable `NaN` comparison.
+
 ============================================================
 10.5. AUDIO CORE CONTRACT
 ============================================================
@@ -767,6 +777,17 @@ Audio Core owns:
 
 Audio Core MUST NOT own or mutate money, research, skills, machines, Zone unlocks,
 save data, or Zone variables. It is a presentation service coordinated by Main.
+
+Audio binding rules:
+- `audio` is optional on every Zone/content object; omission preserves legacy behavior.
+- Music belongs to the active Zone, while SFX may be scoped to Zone, Floor, Machine,
+  Mechanic, Secret, Upgrade, Purchase, or global event content.
+- Reusable sounds belong in `content/audio.json`; direct local asset paths are also
+  allowed when a sound is one-off.
+- `replaceDefault: true` is the explicit opt-in to suppress a synthesized legacy SFX.
+- Audio errors must never block gameplay or throw into the simulation loop.
+- Mechanic-originated events must include their `zoneId` and `mechanicId` so scoped
+  audio can route without hardcoded Zone IDs.
 
 SUPPORTED CONTENT SHAPE:
   "audio": {

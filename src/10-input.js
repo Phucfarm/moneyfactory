@@ -36,13 +36,21 @@
   }
 
   function onKeyDown(e) {
+    if (e.code === "Escape") {
+      callbacks.onEscape && callbacks.onEscape();
+      clearKeys();
+      e.preventDefault();
+      return;
+    }
     if (isTypingTarget(e.target)) return;
     if (callbacks.isInputBlocked && callbacks.isInputBlocked()) return;
-    keys[e.code] = true;
     if (e.code === "Space") {
+      if (e.repeat || isInteractiveTarget(e.target)) return;
       e.preventDefault();
       callbacks.onCollectNearest && callbacks.onCollectNearest();
+      return;
     }
+    keys[e.code] = true;
     const numMatch = e.code.match(/^Digit([1-8])$/);
     if (numMatch) {
       callbacks.onSelectTierIndex && callbacks.onSelectTierIndex(parseInt(numMatch[1], 10) - 1);
@@ -53,8 +61,12 @@
   function isTypingTarget(el) {
     return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
   }
+  function isInteractiveTarget(el) {
+    return !!(el && (el.closest?.("button, a, [role=button], select, summary") || el.tagName === "BUTTON"));
+  }
 
   function onMouseDown(e) {
+    if (e.button !== 0) return;
     dragging = true; dragMoved = false;
     lastPointer = { x: e.clientX, y: e.clientY };
   }
@@ -78,6 +90,7 @@
     lastPointer = { x: e.clientX, y: e.clientY };
   }
   function onMouseUp(e) {
+    if (e.button !== 0) return;
     if (dragging && !dragMoved && e.target === canvas) {
       const rect = canvas.getBoundingClientRect();
       const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
@@ -89,7 +102,8 @@
   function onWheel(e) {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
-    const factor = Math.exp(-e.deltaY * 0.0012);
+    const unitScale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? rect.height : 1;
+    const factor = Math.exp(-e.deltaY * unitScale * 0.0012);
     zoomAt(camera.zoom * factor, e.clientX - rect.left, e.clientY - rect.top, rect);
   }
   function zoomAt(newZoom, screenX, screenY, rect) {

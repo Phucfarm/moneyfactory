@@ -17,12 +17,23 @@
     const startScreen = document.getElementById("start-screen");
     const playButton = document.getElementById("start-play");
     const app = document.getElementById("app");
+    if (startScreen && !startScreen.classList.contains("hidden")) {
+      try {
+        const preview = G.Save.load();
+        if (preview?.state?.settings?.lang) G.i18n.setLang(preview.state.settings.lang);
+      } catch (_) { /* keep default language on preview failure */ }
+      G.i18n.applyToDom();
+    }
     // The first boot only wires the landing screen. After PLAY hides that screen,
     // the same boot path must continue into the real game initialization instead
     // of wiring another dormant click handler and returning forever.
     if (startScreen && playButton && !startScreen.classList.contains("hidden")) {
       playButton.addEventListener("click", async () => {
         playButton.disabled = true;
+        // PLAY is the first reliable user gesture for mobile browser audio.
+        // Unlock here so BGM/SFX can start without requiring a second tap.
+        audioUnlocked = true;
+        G.Audio.unlock();
         await G.Platform.screen.enterGameMode();
         startScreen.classList.add("hidden");
         app.classList.remove("game-hidden");
@@ -56,13 +67,23 @@
         onSelectTierIndex: handleSelectTierIndex,
         onSelectMachineId: handleSelectMachineId,
         onCollectNearest: handleCollectNearest,
+        onEscape: () => G.UI.closePanel(),
         isInputBlocked: () => G.UI.isInputBlocked(),
       },
     });
 
     G.UI.init(state, { onStateImported: handleImportedState, onAfterAction: () => G.Save.save(state) });
     wireGlobalUi();
-    window.addEventListener("resize", () => G.Render.resize());
+    const rotateOverlay = document.getElementById("rotate-overlay");
+    const updateOrientationOverlay = () => {
+      if (!rotateOverlay) return;
+      const shouldShow = !G.Input.isLandscape() && G.Input.isTouchDevice();
+      rotateOverlay.classList.toggle("hidden", shouldShow ? false : true);
+      rotateOverlay.setAttribute("aria-hidden", String(!shouldShow));
+      if (shouldShow) rotateOverlay.querySelector("[data-i18n]")?.replaceChildren(document.createTextNode(G.i18n.t("orientation.rotate")));
+    };
+    window.addEventListener("resize", () => { G.Render.resize(); updateOrientationOverlay(); });
+    updateOrientationOverlay();
 
     const unlock = () => {
       if (audioUnlocked) return;
@@ -308,7 +329,7 @@
         if (ev.zoneId !== state.currentZoneId || ev.floorId !== state.currentFloorId || !(ev.amount > 0)) return;
         const p = G.Render.slotWorldPos(ev.r, ev.c);
         G.Render.spawnParticle({ kind: "spark", x: p.x, y: p.y - 24, vx: 0, vy: -35, life: 0.7, size: 9, color: "rgba(120,225,255,0.95)" });
-        const mechanic = D.zoneById("zone_ocean")?.mechanics?.find((m) => m.id === "ocean_stranded_fish");
+        const mechanic = ev.mechanicId ? G.Zone.getZoneMechanicDef(ev.zoneId, ev.mechanicId) : null;
         const species = mechanic?.config?.species?.find((fish) => fish.id === ev.speciesId);
         const fishName = species ? G.i18n.t(species.nameKey) : ev.speciesId;
         const caughtLabel = ev.automatic ? G.i18n.t("zoneui.ocean.fishCaughtAuto") : G.i18n.t("zoneui.ocean.fishCaught");
@@ -324,33 +345,39 @@
   G.Main.processEvents = processEvents;
 
   function loop(ts) {
-    if (!lastFrameTime) lastFrameTime = ts;
-    let dt = (ts - lastFrameTime) / 1000;
-    lastFrameTime = ts;
-    dt = Math.max(0, Math.min(0.25, dt));
+    try {
+      if (!lastFrameTime) lastFrameTime = ts;
+      let dt = (ts - lastFrameTime) / 1000;
+      lastFrameTime = ts;
+      dt = Math.max(0, Math.min(0.25, dt));
 
-    G.Input.update(dt);
-    const events = F.tick(state, dt);
-    processEvents(events);
+      G.Input.update(dt);
+      const events = F.tick(state, dt);
+      processEvents(events);
 
-    G.Background.sync(state);
-    G.Background.update(state, dt);
+      G.Background.sync(state);
+      G.Background.update(state, dt);
 
-    const floor = F.currentFloor(state);
-    let bonusKey = null;
-    if (bonusSlot && bonusSlot.zoneId === state.currentZoneId && bonusSlot.floorId === state.currentFloorId) bonusKey = bonusSlot.r + "_" + bonusSlot.c;
-    const mechanicUi = G.Zone.getMechanicUIState(state, state.currentZoneId, state.currentFloorId);
-    G.Render.render(state, floor, dt, bonusKey, mechanicUi);
-    G.UI.refreshMechanicDecorations(mechanicUi);
+      const floor = F.currentFloor(state);
+      let bonusKey = null;
+      if (bonusSlot && bonusSlot.zoneId === state.currentZoneId && bonusSlot.floorId === state.currentFloorId) bonusKey = bonusSlot.r + "_" + bonusSlot.c;
+      const mechanicUi = G.Zone.getMechanicUIState(state, state.currentZoneId, state.currentFloorId);
+      G.Render.render(state, floor, dt, bonusKey, mechanicUi);
+      G.UI.refreshMechanicDecorations(mechanicUi);
 
-    hudAccum += dt;
-    if (hudAccum >= 0.15) {
-      hudAccum = 0;
-      G.UI.refreshHUD();
-      if (G.UI.selectedSlot) G.UI.refreshMachinePanelControls();
-      if (G.UI.isPanelOpen) G.UI.refreshOpenPanel();
+      hudAccum += dt;
+      if (hudAccum >= 0.15) {
+        hudAccum = 0;
+        G.UI.refreshHUD(mechanicUi);
+        if (G.UI.selectedSlot) G.UI.refreshMachinePanelControls();
+        if (G.UI.isPanelOpen) G.UI.refreshOpenPanel();
+      }
+    } catch (error) {
+      console.error("Game loop recovered from error:", error);
+      try { hudAccum = 0; G.UI.refreshHUD(); } catch (_) {}
+    } finally {
+      requestAnimationFrame(loop);
     }
-    requestAnimationFrame(loop);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();

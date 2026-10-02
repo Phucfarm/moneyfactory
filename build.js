@@ -137,6 +137,8 @@ function validateMechanicUi(ui, label) {
       if (spec.tone !== undefined && !mechanicUiTones.has(spec.tone)) fail(`${label}.events.${id}.tone is invalid`);
     });
   }
+  if (ui.catalog !== undefined && typeof ui.catalog !== "string") fail(`${label}.catalog must be a string`);
+  if (ui.role !== undefined && typeof ui.role !== "string") fail(`${label}.role must be a string`);
   if (ui.machineStatuses !== undefined && !Array.isArray(ui.machineStatuses)) fail(`${label}.machineStatuses must be an array`);
   if (ui.zoneIndicators !== undefined && !Array.isArray(ui.zoneIndicators)) fail(`${label}.zoneIndicators must be an array`);
 }
@@ -148,7 +150,7 @@ function validateRequirements(reqs, label) {
     if (!isPlainObject(r)) fail(`${label}[${i}]: requirement must be an object`);
     if (!requirementTypes.has(r.type)) fail(`${label}[${i}]: unsupported requirement type: ${r.type}`);
     if (r.op !== undefined && !compareOps.has(r.op)) fail(`${label}[${i}]: unsupported operator: ${r.op}`);
-    if (r.value !== undefined && !validNumber(r.value)) fail(`${label}[${i}]: value must be numeric`);
+    if (r.value === undefined || !validNumber(r.value)) fail(`${label}[${i}]: value is required and must be numeric`);
     if (r.type === "machineCount" && r.machineId !== undefined && typeof r.machineId !== "string") fail(`${label}[${i}]: machineId must be a string`);
     if (r.type === "machineCount" && r.tag !== undefined && (typeof r.tag !== "string" || !/^[A-Za-z0-9_-]+$/.test(r.tag))) fail(`${label}[${i}]: tag must be a CSS-safe string when provided`);
     if (r.type === "machineCount" && r.machineId !== undefined && r.tag !== undefined) fail(`${label}[${i}]: machineCount may use machineId or tag, not both`);
@@ -408,11 +410,10 @@ zones.zones.forEach((zone, zoneIndex) => {
 
   zone.secrets.forEach((secret) => {
     validateAudioConfig(secret.audio, `zone ${zone.id} secret ${secret.id}`, audioAssets);
-    if (secret.discovery !== undefined) {
-      if (!isPlainObject(secret.discovery)) fail(`zone ${zone.id} secret ${secret.id}: discovery must be an object`);
-      validateRequirements(secret.discovery.requirements, `zone ${zone.id} secret ${secret.id}.discovery`);
-      if (secret.discovery.mechanicId !== undefined && typeof secret.discovery.mechanicId !== "string") fail(`zone ${zone.id} secret ${secret.id}: mechanicId must be a string`);
-    }
+    if (!isPlainObject(secret.discovery)) fail(`zone ${zone.id} secret ${secret.id}: discovery is required and must be an object`);
+    validateRequirements(secret.discovery.requirements, `zone ${zone.id} secret ${secret.id}.discovery`);
+    if (!Array.isArray(secret.discovery.requirements) || secret.discovery.requirements.length < 1) fail(`zone ${zone.id} secret ${secret.id}: discovery requires at least one requirement`);
+    if (secret.discovery.mechanicId !== undefined && typeof secret.discovery.mechanicId !== "string") fail(`zone ${zone.id} secret ${secret.id}: mechanicId must be a string`);
     if (secret.reward !== undefined && !isPlainObject(secret.reward)) fail(`zone ${zone.id} secret ${secret.id}: reward must be an object`);
   });
 });

@@ -7,7 +7,7 @@
   "use strict";
   const D = G.DATA;
 
-  const SAVE_VERSION = 6;
+  const SAVE_VERSION = 7;
 
   function makeEmptyGrid() {
     const slots = [];
@@ -47,11 +47,15 @@
       if (!Object.prototype.hasOwnProperty.call(source, key)) return;
       const declared = definition[key];
       const loaded = source[key];
-      if (isPlainObject(declared) && isPlainObject(loaded)) {
-        mergeDeclaredObject(target[key], loaded, declared);
-      } else if (Array.isArray(declared) && Array.isArray(loaded)) {
-        target[key] = cloneJson(loaded);
-      } else if (loaded === null || typeof loaded === "string" || typeof loaded === "boolean" || (typeof loaded === "number" && isFinite(loaded))) {
+      if (isPlainObject(declared)) {
+        if (isPlainObject(loaded)) mergeDeclaredObject(target[key], loaded, declared);
+      } else if (Array.isArray(declared)) {
+        if (Array.isArray(loaded)) target[key] = cloneJson(loaded);
+      } else if (declared === null) {
+        if (loaded === null) target[key] = null;
+      } else if (typeof declared === "number") {
+        if (typeof loaded === "number" && isFinite(loaded)) target[key] = loaded;
+      } else if (typeof loaded === typeof declared) {
         target[key] = loaded;
       }
     });
@@ -169,8 +173,16 @@
         if (typeof loaded.skills.points === "number" && isFinite(loaded.skills.points)) out.skills.points = Math.max(0, Math.floor(loaded.skills.points));
         if (typeof loaded.skills.onlineSeconds === "number" && isFinite(loaded.skills.onlineSeconds)) out.skills.onlineSeconds = Math.max(0, loaded.skills.onlineSeconds);
         if (loaded.skills.tech && typeof loaded.skills.tech === "object") {
+          const legacyTech = loaded.skills.tech;
+          const hadPreV7Auto4 = legacyTech.t_auto_4 === true;
+          const hadPreV7Auto5 = legacyTech.t_auto_5 === true;
           D.TECH_TREE.forEach((t) => {
-            if (loaded.skills.tech[t.id] && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
+            let owned = legacyTech[t.id] === true;
+            // v6 had no t_auto_3. A v6 save that already owned auto-4/5 is
+            // migrated to the new sequential chain without losing the unlock.
+            if (t.id === "t_auto_3" && (hadPreV7Auto4 || hadPreV7Auto5)) owned = true;
+            if (t.id === "t_auto_4" && hadPreV7Auto5) owned = true;
+            if (owned && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
           });
         }
       } else if (oldPrestige) {
@@ -178,8 +190,14 @@
         // old Rebirth counter and reset behavior. New points come from online time.
         if (typeof oldPrestige.perkPoints === "number" && isFinite(oldPrestige.perkPoints)) out.skills.points = Math.max(0, Math.floor(oldPrestige.perkPoints));
         if (oldPrestige.tech && typeof oldPrestige.tech === "object") {
+          const legacyTech = oldPrestige.tech;
+          const hadPreV7Auto4 = legacyTech.t_auto_4 === true;
+          const hadPreV7Auto5 = legacyTech.t_auto_5 === true;
           D.TECH_TREE.forEach((t) => {
-            if (oldPrestige.tech[t.id] && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
+            let owned = legacyTech[t.id] === true;
+            if (t.id === "t_auto_3" && (hadPreV7Auto4 || hadPreV7Auto5)) owned = true;
+            if (t.id === "t_auto_4" && hadPreV7Auto5) owned = true;
+            if (owned && t.requires.every((req) => !!out.skills.tech[req])) out.skills.tech[t.id] = true;
           });
         }
       }
@@ -344,6 +362,7 @@
     } catch (e) {
       console.error("Save sanitize error, falling back to safe defaults for affected fields:", e);
     }
+    out.saveVersion = SAVE_VERSION;
     return out;
   }
 

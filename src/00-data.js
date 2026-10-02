@@ -263,7 +263,8 @@
     // Automation branch
     { id: "t_auto_1", branch: "automation", nameKey: "tech.auto1.name", cost: 1, researchCost: 100, effect: { type: "powerDiscount", value: 0.1 }, requires: [] },
     { id: "t_auto_2", branch: "automation", nameKey: "tech.auto2.name", cost: 2, researchCost: 200, effect: { type: "collectorSpeedMult", value: 0.15 }, requires: ["t_auto_1"] },
-    { id: "t_auto_4", branch: "automation", nameKey: "tech.auto4.name", cost: 5, researchCost: 500, effect: { type: "rndRateMult", value: 0.25 }, requires: ["t_auto_2"] },
+    { id: "t_auto_3", branch: "automation", nameKey: "tech.auto3.name", cost: 3, researchCost: 300, effect: { type: "collectorSpeedMult", value: 0.20 }, requires: ["t_auto_2"] },
+    { id: "t_auto_4", branch: "automation", nameKey: "tech.auto4.name", cost: 5, researchCost: 500, effect: { type: "rndRateMult", value: 0.25 }, requires: ["t_auto_3"] },
     { id: "t_auto_5", branch: "automation", nameKey: "tech.auto5.name", cost: 8, researchCost: 800, effect: { type: "powerDiscount", value: 0.15 }, requires: ["t_auto_4"] },
     // Economy branch
     { id: "t_econ_1", branch: "economy", nameKey: "tech.econ1.name", cost: 1, researchCost: 100, effect: { type: "upgradeDiscount", value: 0.08 }, requires: [] },

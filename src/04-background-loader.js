@@ -10,6 +10,6 @@
     if (!background || !background.source || loaded.has(background.source)) return;
     loaded.add(background.source);
     const safe = String(background.source).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-    document.write('<script src="' + safe + '"><\\/script>');
+    document.write('<script src="' + safe + '"></script>');
   });
 })(window.Game = window.Game || {});

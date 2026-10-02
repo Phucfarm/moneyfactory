@@ -205,17 +205,37 @@
 
   // ---- Formatting -----------------------------------------------------------
   const SUFFIXES = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
-  function formatMoney(n) {
-    if (n === null || n === undefined || !isFinite(n)) return "0";
-    const sign = n < 0 ? "-" : "";
-    n = Math.abs(n);
-    if (n < 1000) return sign + (Math.floor(n * 100) / 100).toString();
-    let tier = 0;
-    while (n >= 1000 && tier < SUFFIXES.length - 1) { n /= 1000; tier++; }
-    if (tier === SUFFIXES.length - 1 && n >= 1000) return sign + n.toExponential(2).replace("e+", "e");
-    const decimals = n < 10 ? 2 : n < 100 ? 1 : 0;
-    const fixed = parseFloat(n.toFixed(decimals)); // trims trailing zeros (1.50 -> 1.5, 2.00 -> 2)
-    return sign + fixed + SUFFIXES[tier];
+  function formatMoney(value) {
+    if (value === null || value === undefined) return "0";
+    const original = Number(value);
+    if (!Number.isFinite(original)) return "0";
+    const sign = original < 0 ? "-" : "";
+    let n = Math.abs(original);
+    if (n < 1000) {
+      const fixed = Number(n.toFixed(2));
+      return sign + String(fixed);
+    }
+
+    let tier = Math.floor(Math.log10(n) / 3);
+    tier = Math.max(1, Math.min(tier, SUFFIXES.length - 1));
+
+    // Beyond the largest named suffix, keep the original magnitude in scientific notation.
+    if (Math.floor(Math.log10(n) / 3) >= SUFFIXES.length) {
+      return sign + n.toExponential(2).replace("e+", "e");
+    }
+
+    let scaled = n / Math.pow(1000, tier);
+    let decimals = scaled < 10 ? 2 : scaled < 100 ? 1 : 0;
+    let rounded = Number(scaled.toFixed(decimals));
+
+    // Prevent boundary values such as 999,999 from becoming "1000K".
+    if (rounded >= 1000 && tier < SUFFIXES.length - 1) {
+      tier += 1;
+      scaled = n / Math.pow(1000, tier);
+      decimals = scaled < 10 ? 2 : scaled < 100 ? 1 : 0;
+      rounded = Number(scaled.toFixed(decimals));
+    }
+    return sign + String(rounded) + SUFFIXES[tier];
   }
 
   function formatTime(seconds) {

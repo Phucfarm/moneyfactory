@@ -30,6 +30,22 @@
 
   function isPlainObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
   function cloneJson(value) { try { return JSON.parse(JSON.stringify(value)); } catch (_e) { return {}; } }
+  const readonlyProxyCache = new WeakMap();
+  function readonlyView(value) {
+    if (!value || typeof value !== "object") return value;
+    if (readonlyProxyCache.has(value)) return readonlyProxyCache.get(value);
+    const proxy = new Proxy(value, {
+      get(target, prop, receiver) {
+        return readonlyView(Reflect.get(target, prop, receiver));
+      },
+      set() { return false; },
+      defineProperty() { return false; },
+      deleteProperty() { return false; },
+      setPrototypeOf() { return false; },
+    });
+    readonlyProxyCache.set(value, proxy);
+    return proxy;
+  }
   function deepFreeze(value) {
     if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
     Object.getOwnPropertyNames(value).forEach((key) => deepFreeze(value[key]));
@@ -212,6 +228,7 @@
       this.id = def.id;
       this.script = def.script || null;
       this.config = deepFreeze(cloneJson(isPlainObject(def.config) ? def.config : {}));
+      this.ui = deepFreeze(cloneJson(isPlainObject(def.ui) ? def.ui : {}));
     }
     onAttach(_ctx) {}
     onZoneUnlocked(_ctx) {}
@@ -250,7 +267,13 @@
       return next;
     }
     emit(ctx, type, payload) { return ctx && typeof ctx.emit === "function" ? ctx.emit(type, payload) : false; }
-    emitUI(ctx, spec) { return ctx && typeof ctx.emitUI === "function" ? ctx.emitUI(spec) : false; }
+    emitUI(ctx, spec) {
+      let resolved = spec;
+      if (typeof spec === "string" && this.ui && isPlainObject(this.ui.events) && this.ui.events[spec]) {
+        resolved = this.ui.events[spec];
+      }
+      return ctx && typeof ctx.emitUI === "function" ? ctx.emitUI(resolved) : false;
+    }
     discover(ctx, secretId) { return ctx && typeof ctx.discoverSecret === "function" ? ctx.discoverSecret(secretId) : false; }
     hasTag(machine, tag) { return !!(machine && Array.isArray(machine.tags) && machine.tags.includes(tag)); }
   }
@@ -461,15 +484,31 @@
     }
 
     context(mechanic, extra) {
+      const input = Object.assign({}, extra || {});
+      // Events are only writable through emit()/emitUI(); never hand the mutable
+      // array to a mechanic directly. Domain objects exposed for reads are proxy
+      // protected so accidental writes throw in strict mode instead of bypassing Core.
+      delete input.events;
+      delete input.state;
+      delete input.zoneDef;
+      delete input.zoneState;
+      delete input.zoneVariables;
+      delete input.mechanics;
+      delete input.floor;
+      delete input.slot;
+      delete input.machine;
       return Object.assign({
         game: buildMechanicGameView(this.state),
-        state: this.state,
+        state: readonlyView(this.state),
         zoneId: this.zoneDef.id,
-        zoneDef: this.zoneDef,
-        zoneState: this.zoneState,
-        zoneVariables: this.zoneState.variables,
-        mechanic,
-        mechanics: this.zoneState.mechanicState,
+        zoneDef: readonlyView(this.zoneDef),
+        zoneState: readonlyView(this.zoneState),
+        zoneVariables: readonlyView(this.zoneState.variables),
+        mechanic: readonlyView(mechanic),
+        mechanics: readonlyView(this.zoneState.mechanicState),
+        floor: readonlyView(extra && extra.floor),
+        slot: readonlyView(extra && extra.slot),
+        machine: readonlyView(extra && extra.machine),
         mechanicStateFor: (id) => {
           if (!isPlainObject(this.zoneState.mechanicState[id]) && !Array.isArray(this.zoneState.mechanicState[id])) this.zoneState.mechanicState[id] = {};
           return this.zoneState.mechanicState[id];
@@ -481,7 +520,7 @@
           G.Factory.grantMoney(this.state, value);
           return true;
         },
-        emit: (type, payload) => emitSafeEvent(extra && extra.events, type, Object.assign({ zoneId: this.zoneDef.id }, payload || {})),
+        emit: (type, payload) => emitSafeEvent(extra && extra.events, type, Object.assign({}, payload || {}, { zoneId: this.zoneDef.id, mechanicId: mechanic.id })),
         emitUI: (spec) => isMechanicUiVisible(this.zoneDef, this.zoneState, mechanic.id)
           ? emitMechanicUiSafe(extra && extra.events, this.zoneDef.id, mechanic.id, spec)
           : false,
@@ -490,7 +529,7 @@
         requirementsMet: (reqs) => requirementsMet(this.state, reqs, this.zoneDef.id),
         machineUnlocked: (machineId) => isMachineUnlocked(this.state, machineId),
         canPlaceMachine: (machineId, targetZoneId) => canPlaceMachineInZone(this.state, machineId, targetZoneId || this.zoneDef.id),
-      }, extra || {});
+      }, input);
     }
 
     call(instance, method, ctx, args) {
@@ -1123,6 +1162,12 @@
     checkMechanicDiscoveries(state, zoneId, events);
   }
   function checkAllSecrets(state, events) { (state.zones || []).forEach((zone) => { if (zone.unlocked) checkSecrets(state, zone.id, events); }); }
+  function getZoneMechanicDef(zoneId, mechanicId) {
+    const zoneDef = getZoneDef(zoneId);
+    if (!zoneDef || typeof mechanicId !== "string") return null;
+    return (zoneDef.mechanics || []).find((item) => item && item.id === mechanicId) || null;
+  }
+
   function getZoneSecrets(state, zoneId) {
     const def = getZoneDef(zoneId), zone = getZoneState(state, zoneId);
     if (!def || !zone) return [];
@@ -1137,7 +1182,7 @@
     const runtime = getRuntime(state, zoneId);
     if (!runtime) return out;
     const uiSnapshot = buildUiStateSnapshot(state);
-    const calculationState = cloneJson(state);
+    const calculationState = uiSnapshot;
     for (const def of runtime.defs()) {
       if (!def || def.enabled === false || !isMechanicUiVisible(zoneDef, zoneState, def.id)) continue;
       const mechanic = runtime.instances.get(def.id);
@@ -1192,6 +1237,7 @@
     discoverSecret,
     checkSecrets,
     getZoneSecrets,
+    getZoneMechanicDef,
     discoverMechanic,
     checkMechanicDiscoveries,
     getZoneMechanics,
