@@ -1,0 +1,69 @@
+/* ============================================================
+   bg.ocean — submerged deep-ocean presentation.
+   Visual-only: no gameplay/state mutation belongs here.
+
+   IMPORTANT: the single base background is declared in
+   content/backgrounds.json. This stylesheet only provides the
+   supporting layers used by the Ocean background behavior.
+   ============================================================ */
+.zone-background--ocean {
+  --ocean-depth: #02131d;
+  --ocean-mid: #063246;
+  --ocean-blue: #0b5b72;
+  --ocean-light: rgba(136, 230, 255, .16);
+  --ocean-caustic: rgba(116, 234, 255, .14);
+  --ocean-pointer-x: 50%;
+  --ocean-pointer-y: 24%;
+  --ocean-activity: .35;
+  isolation: isolate;
+}
+
+/* The base Ocean color/light field is defined once in content/backgrounds.json. */
+
+.zone-background--ocean::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:8;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at 50% 0%,transparent 0 38%,rgba(0,9,15,.08) 62%,rgba(0,6,12,.48) 100%),
+    linear-gradient(180deg,transparent 0 70%,rgba(0,7,11,.22) 84%,rgba(0,4,8,.56) 100%);
+}
+
+.ocean-bg-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;transform:translateZ(0)}
+.ocean-depth-haze{z-index:2}
+.ocean-life{z-index:5;contain:layout paint style}
+.ocean-life-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.ocean-seafloor{z-index:6;top:auto;bottom:0;height:24%;opacity:.9}
+
+/* This layer is intentionally static. Moving light shafts are rendered in
+   ocean.js to avoid mobile GPU compositor flicker from animated blur/blend. */
+.ocean-haze{
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(ellipse at 23% 34%,rgba(86,205,233,.08),transparent 31%),
+    radial-gradient(ellipse at 76% 48%,rgba(55,148,188,.065),transparent 34%),
+    linear-gradient(180deg,rgba(88,203,228,.035),transparent 34%,rgba(0,30,43,.18) 100%);
+}
+
+.ocean-seafloor{
+  background:
+    radial-gradient(ellipse at 21% 55%,rgba(74,100,73,.16),transparent 29%),
+    radial-gradient(ellipse at 66% 48%,rgba(55,84,69,.11),transparent 32%),
+    linear-gradient(180deg,transparent 0,rgba(3,25,25,.28) 22%,rgba(1,11,14,.9) 100%);
+}
+.ocean-seafloor::after{
+  content:"";
+  position:absolute;
+  left:0;right:0;bottom:0;height:28%;
+  background:
+    repeating-linear-gradient(8deg,rgba(125,149,109,.035) 0 2px,transparent 2px 16px),
+    linear-gradient(180deg,rgba(30,57,49,.06),rgba(0,0,0,.32));
+  filter:blur(1px);
+}
+
+@media (max-width:700px){
+  .zone-background--ocean::before{opacity:.9}
+}

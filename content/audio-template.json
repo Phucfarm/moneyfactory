@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "id": "music.ocean.deepworks",
+      "kind": "music",
+      "src": "assets/audio/music/ocean-deepworks.mp3",
+      "volume": 0.65,
+      "loop": true
+    },
+    {
+      "id": "sfx.secret.discovery",
+      "kind": "sfx",
+      "src": "assets/audio/sfx/secret-discovery.mp3",
+      "volume": 0.9
+    }
+  ]
+}
